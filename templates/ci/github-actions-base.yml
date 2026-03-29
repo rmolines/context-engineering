@@ -1,0 +1,70 @@
+# Template: GitHub Actions CI base
+# Adaptado pelo /bootstrap ao stack do projeto (detecção automática)
+#
+# Variáveis que o bootstrap substitui:
+#   {{PACKAGE_MANAGER}} — npm | pnpm | yarn | bun
+#   {{NODE_VERSION}}    — versão do Node.js (ex: 22)
+#   {{INSTALL_CMD}}     — comando de install (ex: pnpm install --frozen-lockfile)
+#   {{LINT_CMD}}        — comando de lint (ex: pnpm lint)
+#   {{TYPECHECK_CMD}}   — comando de type-check (ex: pnpm type-check)
+#   {{TEST_CMD}}        — comando de test (ex: pnpm test)
+#   {{BUILD_CMD}}       — comando de build (ex: pnpm build)
+#   {{HAS_LINT}}        — true/false
+#   {{HAS_TYPECHECK}}   — true/false
+#   {{HAS_TEST}}        — true/false
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "{{NODE_VERSION}}"
+
+      - name: Install dependencies
+        run: {{INSTALL_CMD}}
+
+      # {{HAS_LINT}}
+      - name: Lint
+        run: {{LINT_CMD}}
+
+      # {{HAS_TYPECHECK}}
+      - name: Type check
+        run: {{TYPECHECK_CMD}}
+
+      # {{HAS_TEST}}
+      - name: Test
+        run: {{TEST_CMD}}
+
+      - name: Build
+        run: {{BUILD_CMD}}
+
+  auto-merge:
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ai-generated')
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Auto-merge AI PRs
+        run: gh pr merge ${{ github.event.pull_request.number }} --squash --auto
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

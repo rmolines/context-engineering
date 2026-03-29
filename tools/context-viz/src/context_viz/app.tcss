@@ -1,0 +1,143 @@
+/* Context Visualizer — Main Layout */
+
+Screen {
+    layout: vertical;
+    background: $surface;
+}
+
+/* Header bar */
+#header {
+    dock: top;
+    height: 3;
+    padding: 0 2;
+    background: $primary-darken-3;
+    color: $text;
+}
+
+#header-model {
+    width: auto;
+    margin-right: 2;
+    color: $primary-lighten-2;
+}
+
+#header-usage {
+    width: auto;
+    margin-right: 2;
+}
+
+#header-tokens {
+    width: auto;
+    margin-right: 2;
+}
+
+#header-cost {
+    width: auto;
+    margin-right: 2;
+    color: $text-muted;
+}
+
+#header-progress {
+    width: 1fr;
+}
+
+/* Footer */
+#footer {
+    dock: bottom;
+    height: 1;
+    padding: 0 2;
+    background: $primary-darken-3;
+    color: $text-muted;
+}
+
+/* Main content area */
+#content {
+    height: 1fr;
+}
+
+/* Session panel (Vision 1) */
+#session-panel {
+    height: 1fr;
+    padding: 0 1;
+}
+
+.section-header {
+    height: 1;
+    margin-top: 1;
+    color: $text-muted;
+    text-style: bold;
+}
+
+.block-row {
+    height: 1;
+    padding: 0 1;
+}
+
+.block-row.static {
+    color: $primary-lighten-1;
+}
+
+.block-row.injected {
+    color: #e5a00d;
+}
+
+.block-row.conversation {
+    color: $text;
+}
+
+.block-row.compacted {
+    color: $text-disabled;
+    text-style: italic;
+}
+
+#pointer-bar {
+    height: 1;
+    margin-top: 1;
+    background: $success-darken-2;
+    color: $success-lighten-2;
+    text-align: center;
+    text-style: bold;
+}
+
+#free-space {
+    height: 1fr;
+    min-height: 1;
+}
+
+#compact-threshold {
+    height: 1;
+    background: $error-darken-3;
+    color: $error;
+    text-align: center;
+}
+
+/* Disk panel (Vision 2) */
+#disk-panel {
+    height: auto;
+    max-height: 50%;
+    padding: 0 1;
+    border-top: solid $primary-darken-2;
+}
+
+.dir-header {
+    height: 1;
+    margin-top: 1;
+    color: $text-muted;
+    text-style: bold;
+}
+
+.disk-file {
+    height: 1;
+    padding: 0 1;
+}
+
+.disk-file.in-session {
+    color: $success;
+}
+
+.disk-file.was-used {
+    color: #e5a00d;
+}
+
+.disk-file.never-used {
+    color: $text-muted;
+}

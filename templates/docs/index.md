@@ -1,0 +1,49 @@
+# Domain Map — {Project}
+
+<!--
+  This file is the domain map: pointers to code with short annotations.
+  Each entry links to the actual source file — the code is the single source of truth.
+
+  Rule: pointer > prose. Don't describe what the code does — point to it.
+  Format: [semantic name](relative/path/to/file) — 3-5 word annotation
+
+  Sections below are common; add/remove as needed for your project.
+  Generated initially by /bootstrap init, maintained by /persist drift detection.
+-->
+
+## API Surface
+
+<!-- List API routes with method, auth, and purpose -->
+<!-- Example: -->
+<!-- - [leads CRUD](src/app/api/leads/route.ts) — Bearer auth, Zod validation, POST/GET -->
+<!-- - [agent gateway](src/app/api/agent/gateway/route.ts) — API key auth, action dispatch -->
+
+## Auth
+
+<!-- How authentication works — point to implementation files -->
+<!-- Example: -->
+<!-- - [session JWT](src/lib/session.ts) — web users, cookie-based -->
+<!-- - [API key auth](src/lib/api-auth.ts) — agents, Bearer token -->
+
+## Data Model
+
+<!-- DB layer — point to schema, migrations, or query files -->
+<!-- Example: -->
+<!-- - [leads](src/lib/db-leads.ts) — raw SQL, Neon -->
+<!-- - [schema seed](scripts/seed.sql) — canonical table definitions -->
+
+## Canonical Patterns
+
+<!-- Reference implementations — the files Claude should read before creating something new -->
+<!-- Example: -->
+<!-- - API route: src/app/api/leads/route.ts (auth + validation + response) -->
+<!-- - Server Action: src/app/actions/auth.ts (form action + Zod) -->
+<!-- - Dashboard page: src/app/(dashboard)/leads/page.tsx -->
+
+## Environment Variables
+
+<!-- Required env vars with purpose — not values -->
+<!-- Example: -->
+<!-- - DATABASE_URL — Neon pooled connection -->
+<!-- - SESSION_SECRET — JWT signing key -->
+<!-- - PANTHEON_API_KEY — internal API auth -->

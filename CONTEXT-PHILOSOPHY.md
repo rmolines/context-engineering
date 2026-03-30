@@ -9,13 +9,63 @@
 
 Context is a finite resource. More tokens ≠ better results. After ~70% window usage, precision degrades. After ~85%, hallucinations increase. The goal is not to load everything — it's to load the **right thing at the right time**.
 
+## The fact-first paradigm
+
+Research (see `research/ce-landscape-2026.md`) consistently shows:
+
+- **>50% of effective agent context is domain facts**, not behavioral instructions (Codified Context paper, 283 sessions)
+- **Code examples produce 5x improvement** over rules alone (ReadMe.LLM paper)
+- **Always-on context (100% pass rate) outperforms active retrieval (79%)** for critical knowledge (Vercel eval)
+
+Most AI-assisted projects over-index on instructions ("how to behave") and under-index on facts ("what exists"). The right balance is: **facts first, instructions as minimum necessary.**
+
+### What counts as a fact vs an instruction
+
+| Facts (domain knowledge) | Instructions (behavioral) |
+|---|---|
+| POST /api/leads creates a lead with Bearer auth | Always use conventional commits |
+| Auth uses JWT in cookies for web, API keys for agents | Run /persist before ending session |
+| DB is Neon Postgres, raw SQL, schema in db-*.ts | Follow explore → plan → execute cycle |
+| The canonical dashboard page is src/app/(dashboard)/leads/page.tsx | Use Tailwind, not inline styles |
+
+**The test:** if Claude would build the wrong thing without this info, it's a fact that belongs in context. If Claude would build the right thing but in a non-preferred style, it's an instruction.
+
+### Pointer > prose
+
+When documenting something that exists in code, **point to the file with a short annotation** instead of describing it in prose. The code is the single source of truth — prose duplicates it and drifts.
+
+```markdown
+# ✗ Prose (drifts, wastes tokens)
+The leads API accepts POST requests with a JSON body containing name, domain,
+segment, and notes fields. Authentication is via Bearer token using the
+PANTHEON_API_KEY environment variable. The endpoint validates input with Zod
+and returns 201 on success with the created lead object.
+
+# ✓ Pointer (zero drift, compact)
+- [leads CRUD](src/app/api/leads/route.ts) — Bearer auth, Zod validation, POST/GET
+```
+
+### Canonical patterns
+
+AI agents perform exponentially better when they can pattern-match against existing code in the project. Instead of writing rules about how code should look, point to reference implementations:
+
+```markdown
+## Canonical patterns
+- API route: src/app/api/leads/route.ts (auth, validation, response format)
+- Server Action: src/app/actions/auth.ts (form action + Zod)
+- DB query: src/lib/db-leads.ts (Neon raw SQL pattern)
+- Dashboard page: src/app/(dashboard)/leads/page.tsx
+```
+
+When Claude creates a new API route, it reads the canonical example first and replicates the pattern — auth, error handling, response format — without needing prose rules.
+
 ## The four strategies (Anthropic framework)
 
 | Strategy | What it means | Our mechanism |
 |----------|--------------|---------------|
-| **Write** | Persist state outside the window | STATE.md, workstream files, plan files, BACKLOG.md |
+| **Write** | Persist state outside the window | STATE.md, workstream files, plan files, domain map |
 | **Select** | Retrieve only what's relevant | Progressive disclosure, /discover, hook auto-injection |
-| **Compress** | Summarize to save tokens | Inline summaries + detail file pointers, subagent isolation |
+| **Compress** | Summarize to save tokens | Pointers > prose, inline summaries, subagent isolation |
 | **Isolate** | Separate concerns across agents | Subagents with fresh windows, worktree isolation |
 
 ## Context layers — always-on vs progressive disclosure
@@ -24,14 +74,18 @@ Context is a finite resource. More tokens ≠ better results. After ~70% window 
 
 Auto-loaded at session start. Informs **every** decision. If Claude would err on **direction** without it, it's always-on.
 
-| Layer | Mechanism | Content |
-|-------|-----------|---------|
-| Project identity | CLAUDE.md root (cascata) | What is this, 2-3 lines |
-| Direction | CLAUDE.md root (inline, 5-8 lines) | Product thesis summary, key principles |
-| Conventions | App CLAUDE.md (~80 lines) | Stack, commands, design system, how to work |
-| Current state | STATE.md (via SessionStart hook) | Initiatives table, active workstreams, backlog |
-| Process guardrails | Rules (session-cycle, git-workflow, standards) | How to operate |
-| User profile | Memory (MEMORY.md index) | Preferences, operating model |
+| Layer | Mechanism | Content | Type |
+|-------|-----------|---------|------|
+| Project identity | CLAUDE.md root | What is this, 2-3 lines | fact |
+| Direction | CLAUDE.md root (5-8 lines) | Product thesis, key principles | fact |
+| Domain map pointer | CLAUDE.md root (1-2 lines) | "Domain knowledge in .claude/docs/ — read before operating" | fact |
+| Canonical patterns | CLAUDE.md root (5-8 lines) | Pointers to reference implementations | fact |
+| Conventions | App CLAUDE.md (~50 lines) | Stack, commands, design system | mixed |
+| Current state | STATE.md (via SessionStart hook) | Initiatives, active workstreams, backlog | fact |
+| Process guardrails | Rules (~30 lines total) | How to operate | instruction |
+| User profile | Memory (MEMORY.md index) | Preferences, operating model | fact |
+
+**Note the balance:** ~70% facts, ~30% instructions. This is intentional. Previous versions were the inverse.
 
 ### Progressive disclosure
 
@@ -39,15 +93,42 @@ Available but loaded on demand. If Claude would only err on **detail** without i
 
 | Content | Where | When to load |
 |---------|-------|-------------|
+| Domain knowledge (full) | `.claude/docs/*.md` | Operating on product (APIs, auth, data) |
 | Full thesis/strategy doc | `tese-v1.md` or equivalent | Discussing product, pitch, strategy |
 | Initiative details | `initiatives.md` | Working on a specific initiative |
 | Execution plans | `plan-*.md` | `/run` executing a plan |
 | Workstream history | `workstream.md` in state/ | Resuming specific work |
 | Research/discoveries | `.claude/discoveries/` | Needing prior research |
-| Detailed standards | `.claude/standards/` | Editing specific file types (path-scoped rules) |
-| Competitor/pricing analysis | Inside strategy docs | GTM/pricing discussions |
+| Detailed standards | `.claude/standards/` | Editing specific file types |
 
 **The connecting mechanism is the pointer.** Always-on context contains short summaries + links to detail files. Claude sees the map, reads the detail when acting.
+
+### Domain knowledge — the .claude/docs/ layer
+
+This is the layer most projects are missing. It answers "what does the product expose?" — APIs, auth, data model, canonical patterns.
+
+**Structure:**
+```
+.claude/docs/
+  index.md       ← domain map — pointers to code with short annotations
+```
+
+**The index.md is a map of pointers, not prose.** Each entry links to the actual code file with a 3-5 word annotation. Sections cover: API Surface, Auth, Data Model, Canonical Patterns, Environment Variables.
+
+**What qualifies for .claude/docs/:** if a skill would fail or waste 5+ tool calls discovering this, it belongs here. If it's endpoint-specific detail (request/response schemas, edge cases), read the code directly.
+
+**Relationship to CLAUDE.md:** The CLAUDE.md contains a 1-2 line pointer to .claude/docs/. The domain map itself is progressive disclosure — loaded when Claude needs to operate on the product.
+
+**Why not put it all in CLAUDE.md?** Budget. The domain map for a real project (20+ endpoints, multiple auth flows, 10+ DB tables) easily exceeds 50 lines. That would eat 25% of the always-on budget on one layer. As a pointer in CLAUDE.md + detail in .claude/docs/, it costs 2 lines always-on and loads the full map only when needed.
+
+### Post-compaction context recovery
+
+When Claude compacts conversation history (at ~83.5% context usage), CLAUDE.md survives (re-read from disk) but conversation details are lost. A SessionStart hook with `compact` matcher re-injects:
+- STATE.md content (active initiatives, plans)
+- Domain map pointer (if .claude/docs/ exists)
+- Minimal process reminder
+
+Template: `templates/post-compact-hook.sh`
 
 ## File architecture
 
@@ -55,13 +136,15 @@ Available but loaded on demand. If Claude would only err on **detail** without i
 
 ```
 project-root/
-  CLAUDE.md              ← identity + direction summary + structure + discipline
+  CLAUDE.md              ← identity + direction + canonical patterns + pointers
   tese-v1.md             ← full strategy (progressive, NOT @imported)
   BACKLOG.md             ← decision log (append-only, dated)
   apps/
     main-app/
       CLAUDE.md          ← stack, conventions, commands (cascades from root)
       .claude/
+        docs/
+          index.md       ← domain map: pointers to APIs, auth, data, patterns
         state/
           STATE.md       ← initiatives table + active + backlog (hook-injected)
           initiatives.md ← detail per initiative (progressive)
@@ -75,8 +158,10 @@ project-root/
 
 ```
 project-root/
-  CLAUDE.md              ← identity + direction + conventions (all-in-one)
+  CLAUDE.md              ← identity + direction + canonical patterns + pointers
   .claude/
+    docs/
+      index.md           ← domain map
     state/
       STATE.md           ← initiatives + active + backlog
       ...
@@ -118,6 +203,8 @@ The SessionStart hook injects STATE.md. This is what Claude sees first. Structur
 | Type of info | Destination | Cadence |
 |-------------|-------------|---------|
 | Product direction, thesis | CLAUDE.md `## Direction` (inline summary) | Changes rarely |
+| Domain knowledge (API, auth, data) | `.claude/docs/index.md` (pointers to code) | Changes when APIs change |
+| Canonical patterns | CLAUDE.md (pointers to reference files) | Changes when patterns evolve |
 | Architecture decisions | CLAUDE.md or dedicated doc | Decided once, lasts months |
 | Initiatives/roadmap | STATE.md `## Initiatives` table + initiatives.md | Changes weekly |
 | Active execution | STATE.md `## Active` + plan files | Changes per session |
@@ -133,6 +220,7 @@ At session end, `/persist` routes information to the right place:
 - Direction changes → suggest updating CLAUDE.md (with confirmation)
 - Decisions → BACKLOG.md (if exists)
 - Learnings → Memory system
+- **Domain drift detection** → if code changed (APIs, auth, schema) but .claude/docs/ wasn't updated, alert and suggest update
 - Generates a continuation prompt for the next session
 
 ## Skill lifecycle
@@ -146,10 +234,28 @@ SessionStart (hook) → auto-inject STATE.md
   ↓
 /run → execute plan (commits, PRs, CI)
   ↓
-/persist → save state + generate continuation prompt
+/persist → save state + detect drift + generate continuation prompt
 ```
 
 Skills are inherently progressive disclosure — only the description (~100 tokens) loads until invoked. Full content (1-7k tokens) loads on demand.
+
+## CLAUDE.md budget allocation
+
+Target: <200 lines per file. Recommended allocation for a typical project:
+
+```
+Identity & Direction     ~10 lines   (facts: what is this, where is it going)
+Canonical Patterns       ~8  lines   (facts: pointers to reference implementations)
+Domain Map Pointer       ~2  lines   (fact: "read .claude/docs/ before operating")
+Structure                ~10 lines   (facts: where things live)
+Stack & Conventions      ~15 lines   (mixed: stack facts + convention instructions)
+Commands                 ~10 lines   (facts: what commands exist)
+Context Discipline       ~5  lines   (instructions: how to use the CE system)
+                        ─────────
+Total                   ~60 lines    (~75% facts, ~25% instructions)
+```
+
+Remaining budget (~140 lines) is headroom for project-specific needs. The key insight: most of the budget should be facts that prevent Claude from building the wrong thing, not instructions about style preferences.
 
 ## Anti-patterns
 
@@ -157,16 +263,22 @@ Skills are inherently progressive disclosure — only the description (~100 toke
 |-------------|-------------|-------------------|
 | @importing 200+ line docs | Eats context budget every session | Inline 5-8 line summary + pointer |
 | Duplicate sources of truth | Conflicting state, confusion | One canonical location per info type |
+| Prose describing code | Drifts immediately, wastes tokens | Pointer to file + 3-5 word annotation |
+| All instructions, no facts | Claude knows how to behave but not what exists | Fact-first: domain knowledge before behavioral rules |
 | Logging decisions without datestamp | Can't tell if still relevant | Always `[YYYY-MM-DD]` prefix |
-| Putting everything in CLAUDE.md | Exceeds 200-line target, low adherence | Split: CLAUDE.md (stable) / STATE.md (dynamic) / skills (on-demand) |
+| Putting everything in CLAUDE.md | Exceeds 200-line target, low adherence | Split: CLAUDE.md (stable) / STATE.md (dynamic) / docs (domain) |
 | Depending on user memory | "I told Claude last session" | Persist to disk, auto-inject via hook |
 | Saving code patterns to memory | Stale fast, derivable from code | Only save non-obvious decisions and rationale |
+| Writing rules instead of pointing to examples | Rules are ambiguous, examples are concrete | Canonical patterns section with file pointers |
 
 ## Key constraints (from research)
 
 - **CLAUDE.md target**: <200 lines per file for max adherence
-- **Auto-compact trigger**: ~83.5% of context window. After compaction, CLAUDE.md survives (re-read from disk), conversation details are lost
+- **Fact-first ratio**: aim for ~70% facts, ~30% instructions in always-on context
+- **Auto-compact trigger**: ~83.5% of context window. After compaction, CLAUDE.md survives (re-read from disk), conversation details are lost. Post-compaction hook re-injects state.
 - **"Lost in the middle"**: LLMs attend well to beginning and end, ignore the middle. Critical info at start or end, never buried
 - **Hook compliance**: 100% deterministic. Rule compliance: ~70%. Prefer hooks for critical behaviors
+- **Always-on > retrieval**: 100% vs 79% pass rate (Vercel eval). Critical domain knowledge must be always-on or one pointer away
 - **Subagent isolation**: Fresh 200K window, only final output (~1-2K tokens) returns to parent
 - **Skill injection**: Only description in context until invoked — true progressive disclosure
+- **Code examples > rules**: 5x improvement when AI can pattern-match against project code (ReadMe.LLM)

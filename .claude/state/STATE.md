@@ -7,4 +7,5 @@
 ## Active
 
 ## Completed
+- [plan-fact-first-evolution](plan-fact-first-evolution.md) — evolução fact-first: filosofia, templates, domain map, skills, hooks, rule global
 - [session-protocol](session-protocol.md) — stack completa implementada e revisada (bootstrap, discover, plan, run, persist + hooks + rules)

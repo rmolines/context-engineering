@@ -36,6 +36,7 @@ Use AskUserQuestion:
 Antes de planejar, entenda o contexto:
 - Leia arquivos relevantes à tarefa
 - Verifique git log recente na área
+- Se `.claude/state/campaigns.md` existe: leia pra entender o contexto operacional. Identifique qual campaign este trabalho serve (se alguma).
 - Se há gap de conhecimento: pesquise via subagente (model: sonnet) pra não poluir contexto
 
 ### 3. Escrever plano
@@ -70,6 +71,7 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 > Status: active
 > Created: <YYYY-MM-DD>
 > Last updated: <YYYY-MM-DD>
+> Campaign: {CN — nome | nenhuma (tática pontual)}
 
 ## Objetivo
 <O que e por quê>
@@ -110,6 +112,7 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 > Status: active
 > Created: <YYYY-MM-DD>
 > Last updated: <YYYY-MM-DD>
+> Campaign: {CN — nome | nenhuma (tática pontual)}
 
 ## Objetivo
 <O que e por quê>
@@ -181,6 +184,13 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 Adicione ou atualize a referência ao plano no STATE.md.
 
 ### 5. Checkpoint
+
+Se `.claude/state/campaigns.md` existe mas o plano não referencia nenhuma campaign: use AskUserQuestion:
+
+> **Este trabalho serve alguma campaign ativa? Se sim, qual? Se não, está ok — nem tudo precisa ser campaign.**
+
+- Se o usuário indicar uma campaign → preencher o campo Campaign no header do plano com o nome/ID informado.
+- Se o usuário disser que não → manter "nenhuma (tática pontual)" no campo Campaign.
 
 Apresente o plano e use AskUserQuestion:
 

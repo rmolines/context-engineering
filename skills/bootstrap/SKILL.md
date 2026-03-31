@@ -84,6 +84,28 @@ Use subagentes pra paralelizar o scan se o projeto for grande.
 
 Após gerar, apresente o domain map ao usuário pra review antes de salvar.
 
+### Campaigns
+- **Se existe** (`.claude/state/campaigns.md`): pule (já inicializado)
+- **Se não existe:** crie `.claude/state/campaigns.md`:
+
+```markdown
+# Campaigns
+
+Last reviewed: YYYY-MM-DD
+
+## Active Campaigns
+
+<!-- C1: [nome] — [objetivo em 1 linha] | Status: [on-track|at-risk|blocked] -->
+
+## Completed Campaigns
+
+<!-- [nome] — [data de conclusão] -->
+
+## Strategic Review Log
+
+<!-- [data] — [decisão ou ajuste de direção] -->
+```
+
 ### CI (só se não existe + tem package.json + tem remote GitHub)
 1. Detecte o stack:
    - Package manager: procure `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, ou default `npm`
@@ -115,6 +137,30 @@ Domain map: .claude/docs/index.md (N endpoints, N auth flows)
 ```
 
 Para encontrar planos: liste `plan-*.md` em `.claude/state/` com status != completed.
+
+## 3.5. Backbrief operacional
+
+**Executar apenas se** `.claude/state/campaigns.md` existe E contém campaigns ativas (seção `## Active Campaigns` com pelo menos uma entrada não-comentada). Caso contrário, pule silenciosamente.
+
+Se há campaigns ativas:
+
+1. **Resumo de status** — leia campaigns.md e apresente 1 linha por campaign ativa:
+   ```
+   Campaigns ativas:
+   - C1: [nome] — [status]
+   - C2: [nome] — [status]
+   ```
+
+2. **Cruzamento com intenção da sessão** — após o usuário responder o que quer fazer no step 5 (Alinhar), cruze a resposta com as campaigns:
+   - Se a intenção avança uma campaign → mencione: "Isso avança a campaign C1 — {nome}"
+   - Se não há match com nenhuma campaign → pergunte: "Isso é uma campaign nova ou é tática pontual?"
+
+3. **Verificação de cadência** — leia o campo `Last reviewed:` no topo do campaigns.md:
+   - Se a data é >14 dias atrás **ou** não há registros de revisão no Strategic Review Log nos últimos 5+ bootstraps:
+     > "As campaigns não são revisadas desde {data}. Quer fazer uma revisão estratégica rápida?"
+
+4. **Detecção de divergência** — se há múltiplas sessões seguidas sem match com nenhuma campaign (signal de divergência entre trabalho real e direção declarada):
+   > "Os signals recentes sugerem que a direção pode ter mudado. Quer revisar o Commander's Intent?"
 
 ## 4. Sugerir workstreams (só se STATE.md foi criado agora)
 

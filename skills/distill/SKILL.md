@@ -78,7 +78,21 @@ Dependendo da proposta aprovada:
 2. Atualizar `MEMORY.md`
 3. Seguir formato: regra + Why + How to apply
 
-### Fase 3: Validação
+### Fase 3: Campaign awareness
+
+**Executar apenas se** `.claude/state/campaigns.md` existe E contém campaigns ativas.
+
+1. Ler campaigns ativas em `.claude/state/campaigns.md`
+2. O fluxo destilado avança alguma campaign? O aprendizado (anti-patterns, defaults) é relevante pra alguma?
+3. Se sim → incluir na proposta da Fase 1:
+   - `- [ ] Registrar signal em campaign C{N}: {observação}`
+4. Se aprovado → adicionar signal datado na campaign relevante:
+   ```
+   - [YYYY-MM-DD] Distill: {o que o fluxo revelou sobre a campaign}
+   ```
+5. Se o fluxo destilado sugere uma nova direção não coberta por campaigns → mencionar como possível estratégia emergente
+
+### Fase 4: Validação
 
 - Reler o que foi escrito/atualizado
 - Confirmar que o fluxo da sessão seria reproduzível por outra sessão seguindo a skill

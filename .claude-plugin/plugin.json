@@ -1,0 +1,5 @@
+{
+  "name": "context-engineering",
+  "version": "1.0.0",
+  "description": "Session protocol for Claude Code — context management across sessions with skills for bootstrapping, discovery, planning, execution, persistence, and distillation."
+}

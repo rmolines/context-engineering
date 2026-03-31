@@ -2,10 +2,10 @@
 
 <!-- 2-3 lines: what is this project -->
 
-## Direction
+## Commander's Intent
 
-<!-- 5-8 lines: product thesis summary, key principles -->
-<!-- These lines inform EVERY decision Claude makes. Keep it short and high-signal. -->
+<!-- 5-8 lines: product thesis, key principles, desired end state. -->
+<!-- This is your Commander's Intent — it informs EVERY decision across ALL sessions. -->
 <!-- Full strategy doc lives at {path} — read on demand, not @imported. -->
 
 ## Canonical patterns
@@ -35,5 +35,6 @@
 <!-- How to work with the context system in this project. -->
 - State lives in `.claude/state/STATE.md` (auto-injected every session)
 - Before working on an initiative, read its detail file in `.claude/state/`
+- Campaigns (operational level) in `.claude/state/campaigns.md` — reviewed periodically via /bootstrap backbrief
 - Decisions go into `BACKLOG.md` (dated, append-only)
 - Before ending a task, run `/persist`

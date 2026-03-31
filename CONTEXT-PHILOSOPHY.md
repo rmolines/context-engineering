@@ -68,6 +68,33 @@ When Claude creates a new API route, it reads the canonical example first and re
 | **Compress** | Summarize to save tokens | Pointers > prose, inline summaries, subagent isolation |
 | **Isolate** | Separate concerns across agents | Subagents with fresh windows, worktree isolation |
 
+## The three levels — military doctrine applied
+
+The system operates at three levels inspired by NATO doctrine. Each level has distinct artifacts, cadence, and alignment mechanisms. The separation resolves the gap between strategic direction and tactical execution that causes drift in long-running projects.
+
+| NATO Level | CE Level | Artifact | Cadence (write) | Cadence (read) | Alignment mechanism |
+|---|---|---|---|---|---|
+| Strategic | Commander's Intent | CLAUDE.md `## Commander's Intent` | Rare (milestone/pivot) | Always-on (every session) | /bootstrap suggests review |
+| Operational | Campaigns | `.claude/state/campaigns.md` | Per session (signals) | /bootstrap + /persist | Backbrief (bootstrap) + SITREP (persist) |
+| Tactical | Plans & Sessions | `.claude/state/plan-*.md` | Per session (execution) | /run + /bootstrap | Checkpoint after each batch |
+| (Meta) | Doctrine | `CONTEXT-PHILOSOPHY.md` | Rare (system evolves) | On-demand | /distill (lessons learned → doctrine) |
+
+### Commander's Intent
+
+The military concept of Commander's Intent is: communicate the desired end state, not the steps. Each tactical unit decides how to get there. In CE, `## Commander's Intent` in CLAUDE.md is always-on — every session, every agent sees it. It should be 5-8 lines of product thesis, not a task list.
+
+### Campaigns — the operational level
+
+Campaigns translate intent into work arcs with measurable objectives. Each campaign has: intent (the why), connects-to (link to Commander's Intent), success state (definition of victory), and signals (INTSUM — data emerging from execution). Campaigns last weeks or months. They are the level most AI-assisted projects lack — and where drift happens. Without campaigns, every session re-interprets Commander's Intent from scratch, accumulating tactical drift that is invisible until it compounds into a strategic problem.
+
+### Backbrief and SITREP — the alignment mechanisms
+
+Backbrief (in /bootstrap): subordinate repeats the intent to the commander for confirmation — bootstrap crosses what the user wants to do against active campaigns and signals divergence. SITREP (in /persist): situation report — persist updates campaign signals, detects emergent strategy (Mintzberg), suggests review when divergence accumulates. The flow is bidirectional (Hoshin Kanri catchball): intent flows down, signals flow up.
+
+### Emergent strategy detection
+
+When sessions consistently perform work outside any campaign, that is a signal of emergent strategy (Mintzberg, 1985). The system does not ignore it nor codify it prematurely — it records it as a signal and suggests review. Campaigns can be created, adjusted, or cancelled based on accumulated signals. The distinction: deliberate strategy is Commander's Intent executed. Emergent strategy is what the team actually did. Both matter.
+
 ## Context layers — always-on vs progressive disclosure
 
 ### Always-on (~200 lines budget)
@@ -82,6 +109,7 @@ Auto-loaded at session start. Informs **every** decision. If Claude would err on
 | Canonical patterns | CLAUDE.md root (5-8 lines) | Pointers to reference implementations | fact |
 | Conventions | App CLAUDE.md (~50 lines) | Stack, commands, design system | mixed |
 | Current state | STATE.md (via SessionStart hook) | Initiatives, active workstreams, backlog | fact |
+| Campaign pointer | STATE.md or campaigns.md (1-2 lines) | Active campaigns summary | fact |
 | Process guardrails | Rules (~30 lines total) | How to operate | instruction |
 | User profile | Memory (MEMORY.md index) | Preferences, operating model | fact |
 
@@ -208,6 +236,7 @@ The SessionStart hook injects STATE.md. This is what Claude sees first. Structur
 | Architecture decisions | CLAUDE.md or dedicated doc | Decided once, lasts months |
 | Initiatives/roadmap | STATE.md `## Initiatives` table + initiatives.md | Changes weekly |
 | Active execution | STATE.md `## Active` + plan files | Changes per session |
+| Campaign intent & signals | `.claude/state/campaigns.md` | Per session (signals via /persist) |
 | Organic ideas, todos | STATE.md `## Backlog` | Grows organically |
 | Dated decisions | BACKLOG.md (if hub pattern) | Append-only log |
 | Cross-session learnings | Memory system | When non-obvious patterns emerge |
@@ -228,13 +257,15 @@ At session end, `/persist` routes information to the right place:
 ```
 SessionStart (hook) → auto-inject STATE.md
   ↓
+/bootstrap → load state + backbrief (campaign alignment)
+  ↓
 /discover → research before acting (optional)
   ↓
-/plan → decompose into deliverables with git strategy
+/plan → decompose into deliverables (links to campaign)
   ↓
 /run → execute plan (commits, PRs, CI)
   ↓
-/persist → save state + detect drift + generate continuation prompt
+/persist → save state + campaign signals + detect drift
 ```
 
 Skills are inherently progressive disclosure — only the description (~100 tokens) loads until invoked. Full content (1-7k tokens) loads on demand.

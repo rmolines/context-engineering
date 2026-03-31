@@ -1,14 +1,16 @@
 # State — {Project}
 
+<!-- Operational level: campaigns and strategic alignment in [campaigns.md](campaigns.md) -->
+
 ## Initiatives
-<!-- Roadmap macro. Tabela curta com prioridade e deps. Detalhe em initiatives.md -->
+<!-- Backlog/roadmap items (tactical level) — tabela curta com prioridade e deps. Detalhe em initiatives.md -->
 <!-- > Detail: [initiatives.md](initiatives.md) — read before working on an initiative -->
 
 | ID | Name | Priority | Status | Deps |
 |----|------|----------|--------|------|
 
 ## Active
-<!-- Workstreams e planos em execução — 1 linha + link por item -->
+<!-- Planos e workstreams táticos em execução — 1 linha + link por item -->
 
 ## Backlog
 <!-- Ideias orgânicas, tarefas não priorizadas. Capturadas via /persist ou manualmente -->

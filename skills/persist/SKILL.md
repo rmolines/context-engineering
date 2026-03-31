@@ -19,6 +19,7 @@ Classifique o que precisa persistir:
 | **Memory** | Aprendizado novo sobre usuário, projeto ou feedback não-óbvio | Salvar/atualizar em `~/.claude/projects/.../memory/` |
 | **Direction** | Decisão de direção de produto (tese, princípios, arquitetura macro) | Sugerir ao usuário (não editar automaticamente) |
 | **Domain drift** | Código de APIs, auth, schema ou actions mudou mas `.claude/docs/` não foi atualizado | Alertar e sugerir atualização do domain map |
+| **Campaign signal** | Sessão avançou uma campaign ou revelou algo inesperado | Atualizar signals em `.claude/state/campaigns.md` |
 
 **Skip agressivo:** se a sessão foi pontual (bugfix, pergunta respondida, exploração sem decisão), diga "nada a persistir" e pare. Não forçar burocracia em sessão que não precisa.
 
@@ -75,6 +76,28 @@ Se `.claude/docs/index.md` existe:
 
 Se `.claude/docs/index.md` não existe: não faça nada (o projeto pode não usar o sistema).
 
+### Campaign feedback (inline, rápido)
+
+Se `.claude/state/campaigns.md` existe E tem campaigns ativas:
+
+1. Identificar qual campaign a sessão avançou — inferir do trabalho feito: commits, arquivos editados, contexto da conversa.
+2. Se a sessão mapeia a uma campaign → adicionar signal datado na seção da campaign:
+   ```
+   - [YYYY-MM-DD] {observação concreta do que a sessão revelou}
+   ```
+   Signals são observações emergentes, não resumo de trabalho. Exemplos:
+   - "setup local é o maior gargalo, não os docs" (insight)
+   - "pattern X não escala pra N>100" (descoberta)
+   - "usuário priorizou Y sobre Z apesar do plano dizer o contrário" (divergência)
+3. Se a sessão NÃO mapeia a nenhuma campaign → registrar no final do arquivo:
+   ```
+   - [YYYY-MM-DD] ⚡ Sessão fora de campaign: {descrição do trabalho}. Possível estratégia emergente.
+   ```
+4. Verificar acúmulo de divergência: se 3+ sessões consecutivas não mapeiam a nenhuma campaign:
+   > "As últimas sessões não avançaram nenhuma campaign ativa. Isso pode indicar que as campaigns precisam ser revisadas ou que surgiu uma nova direção. Quer revisar o Commander's Intent?"
+
+Se `.claude/state/campaigns.md` não existe: não fazer nada (o projeto pode não usar o nível operacional).
+
 ### Direction (inline, só sugerir)
 
 Se uma decisão de direção foi tomada:
@@ -97,6 +120,9 @@ Gere um bloco copiável pra próxima sessão:
 
 ### Arquivos-chave
 <!-- Paths relevantes -->
+
+### Campaign
+<!-- Qual campaign esta sessão avançou, se alguma -->
 ```
 
 Mostre ao usuário o que foi salvo (1-2 linhas) + o prompt acima.

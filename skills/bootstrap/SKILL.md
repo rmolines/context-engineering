@@ -24,31 +24,74 @@ Referência: `skills/shared/github-detection.md` — rodar detecção. Se `GITHU
 
 ### Step 1 — Auditar estado local
 
-1. Ler `.claude/state/campaigns.md` → listar campaigns ativas
-2. Ler todos os `plan-*.md` em `.claude/state/` com status `active` → listar deliverables sem campo `Issue: #N`
-3. Apresentar resumo ao usuário:
+1. Ler `.claude/state/campaigns.md` → listar campaigns ativas E completadas
+2. Ler todos os `plan-*.md` em `.claude/state/`:
+   - Status `active` → listar deliverables sem campo `Issue: #N`
+   - Status `completed` → contar (histórico a migrar como milestones fechados)
+3. Ler seção `## Strategic Review Log` do campaigns.md (se existir)
+4. Apresentar resumo ao usuário:
    ```
    Migração para GitHub:
-   - N campaigns → milestones
+
+   Estado ativo:
+   - N campaigns ativas → milestones abertos
    - N deliverables sem issue → issues a criar
+
+   Histórico:
+   - N campaigns completadas → milestones fechados
+   - N planos completados (ficam locais — sem issues retroativas)
+   - Strategic Review Log → comment no milestone mais recente
    ```
-4. Pedir confirmação antes de criar qualquer coisa
+5. Pedir confirmação antes de criar qualquer coisa
 
 ### Step 2 — Criar milestones das campaigns (idempotente)
 
+#### Campaigns ativas
 Para cada campaign ativa:
 1. Verificar se milestone `[CN] nome` já existe
 2. Se não: criar via `gh api repos/{owner}/{repo}/milestones --method POST`
+   - Description: Intent + Success state + signals existentes
 3. Criar `[Backlog]` se não existe
+
+#### Campaigns completadas (histórico)
+Para cada campaign na seção `## Completed Campaigns`:
+1. Verificar se milestone já existe (pode ter sido criada antes de completar)
+2. Se não existe: criar milestone com `--field state=closed`:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones \
+     --method POST \
+     --field title="[CN] nome da campaign" \
+     --field description="Intent: ...\nSuccess state: ...\n\n## Signals\n<signals acumulados>\n\n## Resultado\nCompletada em YYYY-MM-DD" \
+     --field state=closed
+   ```
+3. Se já existe mas está aberta: fechar:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones/{number} \
+     --method PATCH \
+     --field state=closed
+   ```
+
+#### Strategic Review Log
+Se campaigns.md tem seção `## Strategic Review Log` com conteúdo:
+1. Encontrar o milestone ativo mais recente (ou o último fechado, se todos fechados)
+2. Adicionar como comment via `gh api`:
+   ```bash
+   gh api repos/{owner}/{repo}/issues/{milestone-tracking-issue}/comments \
+     --method POST \
+     --field body="## Strategic Review Log (migrado)\n\n<conteúdo do log>"
+   ```
+   Alternativa se não houver tracking issue: incluir no description do milestone mais recente (respeitando limite de 1024 chars).
 
 ### Step 3 — Criar issues dos deliverables
 
-Para cada plan file ativo com deliverables sem `Issue: #N`:
+Para cada plan file **ativo** com deliverables sem `Issue: #N`:
 1. Identificar milestone da campaign do plano
 2. Para cada deliverable sem issue:
    - Criar label `plan:<slug>` se não existe
    - Criar issue com `gh issue create` (mesmo formato do /plan step 3.5)
    - Atualizar plan file: adicionar `**Issue:** #N` ao deliverable
+
+**Planos completados:** não criar issues retroativas. O histórico de execução está nos commits, plan files locais e PRs. Criar issues pra trabalho já feito seria ruído sem valor operacional.
 
 ### Step 4 — Rebuild STATE.md
 
@@ -58,10 +101,17 @@ Rodar o mesmo rebuild do step 2.5 do modo DEFAULT (cache do GitHub).
 
 ```
 Migração concluída:
-- N milestones criados
+
+Estado ativo:
+- N milestones abertos criados
 - N issues criados
 - N plan files atualizados
-- STATE.md regenerado do GitHub
+
+Histórico:
+- N milestones fechados criados (campaigns completadas)
+- Strategic Review Log migrado para [milestone/comment]
+
+STATE.md regenerado do GitHub
 ```
 
 ---

@@ -27,6 +27,14 @@ gh auth status 2>/dev/null
 
 ## Projects V2 — detecção adicional
 
+### Decisão: 1 Project por repo
+
+O plugin assume **1 Project V2 por repositório**, nomeado `"CE: {repo-name}"`. Múltiplos projects por repo não são suportados.
+
+**Razão:** cada repo é uma unidade de trabalho com suas campaigns e plans. Um Project é a view visual disso. Para múltiplas perspectivas (só backlog, só campaign X, só sprint atual), usar **saved views com filtros** no mesmo Project — é uma feature nativa do GitHub Projects V2, sem custo de complexidade.
+
+**Se necessário no futuro:** o cache (`.github-project-cache.json`) já indexa por `projectNumber`, o que permite evolução pra multi-project sem breaking change.
+
 Se `GITHUB_MODE=true`, verificar se o scope `project` está disponível:
 
 ```bash

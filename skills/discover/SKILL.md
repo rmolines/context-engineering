@@ -65,13 +65,24 @@ Consolide os resultados dos subagentes em um resumo estruturado:
 
 Apresente ao usuário de forma concisa.
 
-## 5. Próximos passos
+## 5. Campaign awareness
+
+**Executar apenas se** `.claude/state/campaigns.md` existe E contém campaigns ativas.
+
+Após sintetizar:
+1. Ler campaigns ativas em `.claude/state/campaigns.md`
+2. Cruzar os achados da discovery com as campaigns — a pesquisa avança ou informa alguma campaign?
+3. Se sim → destacar a conexão no output: "Esta discovery é relevante para **C{N} — {nome}**: {por quê}"
+4. Se a discovery revela algo inesperado que impacta uma campaign → sugerir ao usuário registrar como signal (mas não escrever automaticamente — isso é responsabilidade do `/persist`)
+5. Se a discovery não mapeia a nenhuma campaign → mencionar brevemente: "Pesquisa fora do escopo de campaigns ativas. Se isso virar recorrente, pode indicar estratégia emergente."
+
+## 6. Próximos passos
 
 Após apresentar os resultados, sugira o caminho natural:
 - Se a discovery informa uma tarefa → sugira `/plan <tarefa>` pra planejar a execução
 - Se a discovery é pesquisa pura → pergunte se quer salvar em disco
 
-## 6. Persistir (se relevante)
+## 7. Persistir (se relevante)
 
 Use AskUserQuestion:
 

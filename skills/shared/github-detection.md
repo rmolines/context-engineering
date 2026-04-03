@@ -60,7 +60,9 @@ Formato do cache:
   "fields": {
     "Status": { "id": "PVTSSF_xxx", "options": {"Todo": "opt_1", "In Progress": "opt_2", "Done": "opt_3"} },
     "Campaign": { "id": "PVTSSF_xxx", "options": {"[C1]": "opt_a", "[Backlog]": "opt_b"} },
-    "Size": { "id": "PVTSSF_xxx", "options": {"S": "opt_s", "M": "opt_m", "L": "opt_l"} }
+    "Size": { "id": "PVTSSF_xxx", "options": {"S": "opt_s", "M": "opt_m", "L": "opt_l"} },
+    "Start Date": { "id": "PVTF_xxx" },
+    "Target Date": { "id": "PVTF_xxx" }
   }
 }
 ```

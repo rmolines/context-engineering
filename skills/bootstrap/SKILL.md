@@ -290,6 +290,14 @@ else
 fi
 ```
 
+#### Linkar ao repositório
+
+```bash
+gh project link $PROJECT_NUMBER --owner {owner} --repo {owner}/{repo}
+```
+
+Isso faz o project aparecer na aba "Projects" do repo.
+
 #### Criar custom fields (idempotente — checar com field-list antes)
 
 ```bash
@@ -307,9 +315,20 @@ echo "$EXISTING_FIELDS" | grep -q "Size" || \
   gh project field-create $PROJECT_NUMBER --owner {owner} \
     --name "Size" --data-type SINGLE_SELECT \
     --single-select-options "S,M,L"
+
+# Start Date (pra roadmap view)
+echo "$EXISTING_FIELDS" | grep -q "Start Date" || \
+  gh project field-create $PROJECT_NUMBER --owner {owner} \
+    --name "Start Date" --data-type DATE
+
+# Target Date (pra roadmap view)
+echo "$EXISTING_FIELDS" | grep -q "Target Date" || \
+  gh project field-create $PROJECT_NUMBER --owner {owner} \
+    --name "Target Date" --data-type DATE
 ```
 
 Nota: o campo "Status" já vem criado por default (Todo, In Progress, Done).
+Os campos "Start Date" e "Target Date" habilitam a **Roadmap view** no GitHub Projects.
 
 #### Cache de node IDs
 
@@ -341,11 +360,14 @@ gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID \
   --field-id $SIZE_FIELD_ID --single-select-option-id $SIZE_OPTION
 ```
 
-#### Orientação de automações
+#### Orientação de automações e views
 
 Na primeira criação do Project, informar:
-> "Project V2 criado: {url}. Recomendo habilitar automações built-in na UI:
-> Settings → Workflows → 'Item added' → Status = Todo / 'Issue closed' → Status = Done"
+> "Project V2 criado: {url}.
+> Recomendo configurar na UI:
+> 1. **Workflows:** Settings → Workflows → 'Item added' → Status = Todo / 'Issue closed' → Status = Done
+> 2. **Roadmap view:** + New view → Layout: Roadmap → Date fields: Start Date / Target Date
+> 3. **Board view:** + New view → Layout: Board → Group by: Status"
 
 ### STATE.md — rebuild do cache
 

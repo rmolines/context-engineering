@@ -121,6 +121,10 @@ Cada subagente recebe um **prompt auto-contido** com:
    - D1: concluído (YYYY-MM-DD) — <resumo> [worktree]
    - D3: concluído (YYYY-MM-DD) — <resumo> [worktree]
    ```
+   Se GITHUB_MODE: incluir issue/PR refs:
+   ```
+   - D1: concluído (YYYY-MM-DD) — <resumo> [worktree] [#23 → PR #45]
+   ```
 
 8. **Cleanup:** worktrees sem mudanças são removidos automaticamente. Após merge bem-sucedido:
    ```bash
@@ -161,6 +165,10 @@ Execute sequencialmente. Para cada deliverable/step:
    ```
    - D1: concluído (YYYY-MM-DD) — <resumo de 1 linha>
    ```
+   Se GITHUB_MODE e deliverable tem Issue: adicionar referência:
+   ```
+   - D1: concluído (YYYY-MM-DD) — <resumo> [#23 → PR #45]
+   ```
 
 ### Sub-deliverables (D3.1, D3.2...)
 
@@ -193,6 +201,11 @@ Se modo git != `direct-commit` e este batch fecha um PR (conforme Git Strategy):
    ## Summary
    - <bullet points do que foi feito>
 
+   ## Closes
+   <!-- Se GITHUB_MODE=true e deliverables do batch têm campo Issue: #N -->
+   Closes #N
+   Closes #M
+
    ## Test plan
    - [ ] <checklist de validação>
 
@@ -209,6 +222,13 @@ Se modo git != `direct-commit` e este batch fecha um PR (conforme Git Strategy):
    - Se CI falha: diagnosticar, corrigir, push, esperar novamente (máx 2 tentativas, depois parar)
    - Após merge (auto-merge via CI): `git checkout main && git pull origin main`
    - Seguir pro próximo batch com main atualizado
+5. **Verificar issues fechadas** (se GITHUB_MODE=true):
+   Para cada deliverable do batch com campo `Issue: #N`:
+   ```bash
+   gh issue view N --json state --jq '.state'
+   ```
+   - Se `CLOSED`: ok, registrar no Execution Log
+   - Se `OPEN`: avisar — o PR pode não ter mergeado no default branch, ou o `Closes #N` não estava no body
 
 Se modo `direct-commit`: nenhuma ação git adicional.
 

@@ -21,6 +21,8 @@ Classifique o que precisa persistir:
 | **Domain drift** | Código de APIs, auth, schema ou actions mudou mas `.claude/docs/` não foi atualizado | Alertar e sugerir atualização do domain map |
 | **Campaign signal** | Sessão avançou uma campaign ou revelou algo inesperado | Atualizar signals em `.claude/state/campaigns.md` |
 
+**GitHub mode:** Se `GITHUB_MODE=true` (ver `skills/shared/github-detection.md`), os tipos Campaign signal e Workstream ganham sync com GitHub (detalhes nos steps abaixo).
+
 **Skip agressivo:** se a sessão foi pontual (bugfix, pergunta respondida, exploração sem decisão), diga "nada a persistir" e pare. Não forçar burocracia em sessão que não precisa.
 
 ## Step 2 — Executar em paralelo
@@ -47,6 +49,27 @@ Leia `.claude/state/STATE.md` pra ver workstreams existentes.
 Seções opcionais (só se relevante): `Tentativas que falharam`, `Pendências e blockers`.
 
 Atualize STATE.md: mover entre Active/Completed, adicionar ao Backlog se surgiram ideias.
+
+### Workstream → GitHub issue comment (se GITHUB_MODE=true)
+
+Oferecer (não forçar) ao usuário registrar contexto de sessão como comment na issue mais relevante:
+
+1. Verificar se há plano ativo com deliverables que têm campo `Issue: #N`
+2. Se sim, perguntar:
+   > "Quer registrar o contexto desta sessão como comentário no issue #N (<título>)?"
+3. Se sim:
+   ```bash
+   gh issue comment N --body "$(cat <<'EOF'
+   ## Session update [YYYY-MM-DD]
+
+   **Decisões:** <decisões-chave da sessão>
+   **Próxima sessão:** <contexto para continuação>
+   **Arquivos-chave:** <paths relevantes>
+   EOF
+   )"
+   ```
+
+Se não houver issues abertas no plano ativo: não oferecer.
 
 ### Memory (subagente haiku)
 
@@ -95,6 +118,29 @@ Se `.claude/state/campaigns.md` existe E tem campaigns ativas:
    ```
 4. Verificar acúmulo de divergência: se 3+ sessões consecutivas não mapeiam a nenhuma campaign:
    > "As últimas sessões não avançaram nenhuma campaign ativa. Isso pode indicar que as campaigns precisam ser revisadas ou que surgiu uma nova direção. Quer revisar o Commander's Intent?"
+
+### Campaign signal → GitHub (se GITHUB_MODE=true)
+
+Após escrever o signal localmente em campaigns.md:
+
+1. Identificar o milestone da campaign:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title | startswith("[CN]")) | {number, description}'
+   ```
+2. Ler description atual do milestone
+3. Append o signal datado ao bloco `## Signals` na description:
+   ```
+   - [YYYY-MM-DD] {observação concreta}
+   ```
+4. Atualizar:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones/{number} \
+     --method PATCH \
+     --field description="<description atualizada>"
+   ```
+5. **Limite de tamanho:** se description > 900 chars, avisar o usuário que signals antigos devem ser arquivados (milestone descriptions têm limite ~1024 chars). Não truncar automaticamente.
+
+Se a detecção GitHub falhar: pular silenciosamente (o signal local já foi salvo).
 
 Se `.claude/state/campaigns.md` não existe: não fazer nada (o projeto pode não usar o nível operacional).
 

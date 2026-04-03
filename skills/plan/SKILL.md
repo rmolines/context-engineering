@@ -80,11 +80,13 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 
 ### D1 — <nome>
 **O que:** <descrição concisa>
+**Issue:** <#N — preenchido pelo step 3.5 se GITHUB_MODE>
 **Deps:** nenhuma
 **Tamanho:** pequeno | medio | grande
 
 ### D2 — <nome>
 **O que:** <descrição>
+**Issue:** <#N — preenchido pelo step 3.5 se GITHUB_MODE>
 **Deps:** D1
 **Tamanho:** medio
 
@@ -121,12 +123,14 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 
 ### D1 — <nome>
 **O que:** <descrição detalhada>
+**Issue:** <#N — preenchido pelo step 3.5 se GITHUB_MODE>
 **Implementação:** <como, onde, detalhes técnicos>
 **Deps:** nenhuma
 **Tamanho:** pequeno
 
 ### D2 — <nome>
 **O que:** <descrição detalhada>
+**Issue:** <#N — preenchido pelo step 3.5 se GITHUB_MODE>
 **Implementação:** <como, onde>
 **Deps:** D1, D3
 **Tamanho:** medio
@@ -178,6 +182,74 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 - Mapear domínios de arquivo quando há agentes paralelos no mesmo batch (evita conflitos)
 - **Worktrees:** deliverables paralelos num batch usam `isolation: "worktree"` no /run — cada subagente trabalha em cópia isolada do repo. O /plan não precisa configurar worktrees, apenas garantir que domínios de arquivo estejam claros pra minimizar conflitos no merge.
 - Se o projeto não tem CI configurado: sugerir `/bootstrap init` antes de executar com PRs
+
+### 3.5. GitHub Issues (se GITHUB_MODE=true)
+
+Referência: `skills/shared/github-detection.md` — rodar a detecção.
+
+Se `GITHUB_MODE=false`: pular este step inteiro.
+
+#### Identificar milestone
+
+Ler o campo `Campaign:` do header do plano.
+- Se tem campaign (ex: `C1 — Dogfooding`): encontrar o milestone correspondente:
+  ```bash
+  gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title | startswith("[C1]")) | .title'
+  ```
+- Se "nenhuma (tática pontual)": usar milestone `[Backlog]`
+
+#### Criar issues (uma por deliverable, em ordem)
+
+Para cada deliverable DN:
+
+1. **Check de duplicata** — buscar issue existente com mesmos labels:
+   ```bash
+   gh issue list --label "plan:<slug>" --json number,title --jq '.[] | select(.title | startswith("DN"))'
+   ```
+   Se já existe: pular criação, usar número existente.
+
+2. **Criar issue:**
+   ```bash
+   gh issue create \
+     --title "DN — <nome do deliverable>" \
+     --body "$(cat <<'EOF'
+   ## O que
+   <descrição do deliverable — copiar do campo "O que:" do plano>
+
+   ## Acceptance criteria
+   - [ ] <critério derivado da descrição>
+
+   ## Plan
+   plan-<slug>.md · Batch N · Deps: <deps ou "nenhuma">
+   EOF
+   )" \
+     --milestone "<[CN] milestone title>" \
+     --label "type:deliverable,batch:<N>,size:<size>,plan:<slug>"
+   ```
+
+3. **Registrar no plano** — adicionar `**Issue:** #N` ao deliverable no plan file:
+   ```markdown
+   ### D1 — nome
+   **O que:** descrição
+   **Issue:** #23
+   **Deps:** nenhuma
+   **Tamanho:** medio
+   ```
+
+#### Labels dinâmicos
+
+Se o label `plan:<slug>` ou `campaign:<slug>` não existe: criar antes das issues:
+```bash
+gh label create "plan:<slug>" --color "BFD4F2" --description "Plan: <slug>" || true
+gh label create "campaign:<slug>" --color "D4C5F9" --description "Campaign: <slug>" || true
+```
+
+#### Atualizar header do plano
+
+Adicionar ao header do plan file:
+```markdown
+> GitHub: issues created, milestone=[CN] nome
+```
 
 ### 4. Atualizar STATE.md
 

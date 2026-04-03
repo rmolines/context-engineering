@@ -1,10 +1,72 @@
 ---
 name: bootstrap
-description: "Carregar estado do projeto, inicializar o que falta, alinhar sessão. Idempotente — sempre seguro de rodar. Detecta automaticamente se precisa inicializar ou recarregar. Usar: '/bootstrap' em qualquer projeto, a qualquer momento."
+description: "Carregar estado do projeto, inicializar o que falta, alinhar sessão. Idempotente — sempre seguro de rodar. Detecta automaticamente se precisa inicializar ou recarregar. Usar: '/bootstrap' em qualquer projeto, a qualquer momento. '/bootstrap migrate-to-github' migra estado local para GitHub Issues/Milestones."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
+argument-hint: "[migrate-to-github]"
 ---
 
 # /bootstrap — Gestão de estado do projeto
+
+**Input:** `$ARGUMENTS`
+
+| Input | Modo |
+|---|---|
+| vazio | DEFAULT — detectar, inicializar, carregar, alinhar |
+| `migrate-to-github` | MIGRATE — migrar estado local para GitHub Issues/Milestones |
+
+---
+
+## Modo MIGRATE (migrate-to-github)
+
+Migra campaigns e deliverables de planos locais para GitHub Issues/Milestones.
+
+Referência: `skills/shared/github-detection.md` — rodar detecção. Se `GITHUB_MODE=false`: abortar com mensagem clara.
+
+### Step 1 — Auditar estado local
+
+1. Ler `.claude/state/campaigns.md` → listar campaigns ativas
+2. Ler todos os `plan-*.md` em `.claude/state/` com status `active` → listar deliverables sem campo `Issue: #N`
+3. Apresentar resumo ao usuário:
+   ```
+   Migração para GitHub:
+   - N campaigns → milestones
+   - N deliverables sem issue → issues a criar
+   ```
+4. Pedir confirmação antes de criar qualquer coisa
+
+### Step 2 — Criar milestones das campaigns (idempotente)
+
+Para cada campaign ativa:
+1. Verificar se milestone `[CN] nome` já existe
+2. Se não: criar via `gh api repos/{owner}/{repo}/milestones --method POST`
+3. Criar `[Backlog]` se não existe
+
+### Step 3 — Criar issues dos deliverables
+
+Para cada plan file ativo com deliverables sem `Issue: #N`:
+1. Identificar milestone da campaign do plano
+2. Para cada deliverable sem issue:
+   - Criar label `plan:<slug>` se não existe
+   - Criar issue com `gh issue create` (mesmo formato do /plan step 3.5)
+   - Atualizar plan file: adicionar `**Issue:** #N` ao deliverable
+
+### Step 4 — Rebuild STATE.md
+
+Rodar o mesmo rebuild do step 2.5 do modo DEFAULT (cache do GitHub).
+
+### Step 5 — Report
+
+```
+Migração concluída:
+- N milestones criados
+- N issues criados
+- N plan files atualizados
+- STATE.md regenerado do GitHub
+```
+
+---
+
+## Modo DEFAULT
 
 Comando idempotente. Detecta o que existe e o que falta, inicializa o necessário, recarrega o estado.
 
@@ -120,9 +182,89 @@ Last reviewed: YYYY-MM-DD
    ```
 4. Informe o usuário do que foi configurado
 
+## 2.5. GitHub sync
+
+**Executar apenas se** o projeto tem remote GitHub E `gh auth status` retorna sucesso. Se qualquer check falhar: pule silenciosamente e siga com o fluxo local (steps 3+).
+
+Referência: `skills/shared/github-detection.md` — rodar a detecção descrita lá.
+
+### Labels (idempotente — criar apenas as que não existem)
+
+Criar cada label com `|| true` pra ignorar erro se já existe:
+
+```bash
+gh label create "type:deliverable" --color "0052CC" --description "Plan deliverable" || true
+gh label create "type:backlog" --color "FBCA04" --description "Backlog item sem plano ativo" || true
+gh label create "status:ready" --color "0E8A16" --description "Deps satisfeitas, pode executar" || true
+gh label create "status:in-progress" --color "D93F0B" --description "Em andamento" || true
+gh label create "status:blocked" --color "B60205" --description "Bloqueado" || true
+gh label create "size:small" --color "C2E0C6" --description "Pequeno" || true
+gh label create "size:medium" --color "FEF2C0" --description "Médio" || true
+gh label create "size:large" --color "F9D0C4" --description "Grande" || true
+```
+
+### Milestones das campaigns (idempotente)
+
+Se `.claude/state/campaigns.md` existe e tem campaigns ativas:
+
+1. Ler campaigns ativas — cada campaign com formato `### CN: nome`
+2. Para cada campaign ativa, verificar se milestone já existe:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones --jq '.[].title' | grep "^\[CN\]"
+   ```
+3. Se não existe: criar
+   ```bash
+   gh api repos/{owner}/{repo}/milestones \
+     --method POST \
+     --field title="[CN] nome da campaign" \
+     --field description="Intent: ...\nSuccess state: ...\n\n## Signals" \
+     --field state=open
+   ```
+4. Criar milestone `[Backlog]` se não existe
+
+### STATE.md — rebuild do cache
+
+Regenerar STATE.md a partir do GitHub:
+
+1. Buscar issues abertas:
+   ```bash
+   gh issue list --state open --json number,title,milestone,labels --limit 200
+   ```
+2. Buscar issues fechadas recentes (30 dias):
+   ```bash
+   gh issue list --state closed --json number,title,milestone,labels,closedAt --limit 50
+   ```
+3. Gerar STATE.md com header indicando que é cache:
+
+```markdown
+# Project State
+<!-- Generated from GitHub at YYYY-MM-DDTHH:MM:SSZ — do not edit manually -->
+<!-- Regenerated by /bootstrap. Source of truth: GitHub Issues/Milestones. -->
+
+## Active
+- #N [CN] DN — título (batch:X, size:Y)
+
+## Backlog
+- #N título
+
+## Completed (last 30 days)
+- #N [CN] DN — título — closed YYYY-MM-DD via PR #M
+```
+
+Se não houver issues no GitHub: manter STATE.md local existente (não sobrescrever com arquivo vazio).
+
+### campaigns.md — refresh de signals
+
+Para cada milestone que mapeia a uma campaign:
+1. Ler description do milestone via `gh api`
+2. Se há signals no milestone que não estão no campaigns.md local: adicionar
+3. Atualizar campo `Last reviewed:` com data de hoje
+
 ## 3. Carregar estado
 
 Leia `.claude/state/STATE.md` e mostre overview:
+
+> Se STATE.md tem header `<!-- Generated from GitHub -->`: indicar que está em GitHub mode e as issues são a fonte de verdade.
 
 ```
 Project State:

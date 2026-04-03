@@ -224,7 +224,7 @@ Para cada deliverable DN:
    EOF
    )" \
      --milestone "<[CN] milestone title>" \
-     --label "type:deliverable,batch:<N>,size:<size>,plan:<slug>"
+     --label "type:deliverable,batch:<N>,size:<size>,plan:<slug>,status:ready"
    ```
 
 3. **Registrar no plano** — adicionar `**Issue:** #N` ao deliverable no plan file:
@@ -243,6 +243,33 @@ Se o label `plan:<slug>` ou `campaign:<slug>` não existe: criar antes das issue
 gh label create "plan:<slug>" --color "BFD4F2" --description "Plan: <slug>" || true
 gh label create "campaign:<slug>" --color "D4C5F9" --description "Campaign: <slug>" || true
 ```
+
+#### Adicionar ao Projects V2 (se PROJECTS_MODE=true)
+
+Se `.claude/state/.github-project-cache.json` existe:
+
+Para cada issue criada:
+```bash
+# Ler cache
+PROJECT_NUMBER=$(jq -r '.projectNumber' .claude/state/.github-project-cache.json)
+PROJECT_ID=$(jq -r '.projectId' .claude/state/.github-project-cache.json)
+OWNER=$(jq -r '.owner' .claude/state/.github-project-cache.json)
+
+# Adicionar ao board
+ITEM_ID=$(gh project item-add $PROJECT_NUMBER --owner $OWNER --url {issue_url} --format json | jq -r '.id')
+
+# Setar Campaign
+CAMPAIGN_FIELD=$(jq -r '.fields.Campaign.id' .claude/state/.github-project-cache.json)
+CAMPAIGN_OPT=$(jq -r '.fields.Campaign.options["[CN]"]' .claude/state/.github-project-cache.json)
+gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID --field-id $CAMPAIGN_FIELD --single-select-option-id $CAMPAIGN_OPT
+
+# Setar Size
+SIZE_FIELD=$(jq -r '.fields.Size.id' .claude/state/.github-project-cache.json)
+SIZE_OPT=$(jq -r ".fields.Size.options[\"$SIZE\"]" .claude/state/.github-project-cache.json)
+gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID --field-id $SIZE_FIELD --single-select-option-id $SIZE_OPT
+```
+
+Se cache não existe: pular (issues ficam no board sem campos custom até o próximo /bootstrap).
 
 #### Atualizar header do plano
 

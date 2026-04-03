@@ -56,12 +56,34 @@ Discovery amplo (N eixos):
 
 **Para discovery interno leve** (1-2 arquivos, grep simples): faça inline, sem subagente. Não gaste overhead de subagente pra tarefas triviais.
 
+### GitHub Issues como contexto (se GITHUB_MODE=true)
+
+Referência: `skills/shared/github-detection.md` — rodar a detecção.
+
+Se `GITHUB_MODE=true`, adicionar um subagente dedicado a issues do GitHub:
+
+```
+Subagente "github-context" (model: haiku):
+- Rodar: gh issue list --state open --json number,title,body,labels,milestone --limit 50
+- Filtrar issues relevantes pro tópico do discovery
+- Retornar: lista de issues relacionadas com resumo de 1 linha cada
+```
+
+Este subagente roda em paralelo com os outros (codebase, web, etc.).
+
+Se `GITHUB_MODE=false`: pular silenciosamente.
+
 ## 4. Sintetizar
 
 Consolide os resultados dos subagentes em um resumo estruturado:
 - O que foi descoberto (fatos, padrões, decisões existentes)
 - Gaps que persistem (o que não foi possível descobrir)
 - Implicações pra tarefa em questão (se há uma)
+- GitHub context (se GITHUB_MODE=true): issues abertas relacionadas ao tópico
+  ```
+  ## GitHub context
+  - #N título — milestone, relevância pro tópico
+  ```
 
 Apresente ao usuário de forma concisa.
 

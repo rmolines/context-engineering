@@ -70,6 +70,17 @@ Se modo git != `direct-commit`:
 
 ### 4b. Deliverables independentes no batch → paralelizar com worktrees
 
+**Auto-labeling (se GITHUB_MODE=true):** Antes de começar cada deliverable com campo `Issue: #N`:
+```bash
+gh issue edit N --add-label "status:in-progress" --remove-label "status:ready"
+```
+Se `.claude/state/.github-project-cache.json` existe (Projects V2 ativo): atualizar Status no board:
+```bash
+# Ler cache pra obter IDs
+ITEM_ID=$(gh project item-list {number} --owner {owner} --format json | jq -r '.items[] | select(.content.number == N) | .id')
+gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID --field-id $STATUS_FIELD_ID --single-select-option-id $IN_PROGRESS_OPTION
+```
+
 Se o batch tem 2+ deliverables sem deps entre si, delegue a subagentes em paralelo **usando `isolation: "worktree"`**. Cada subagente trabalha numa cópia isolada do repo — sem risco de colisão de arquivos.
 
 Escolha o modelo por deliverable:
@@ -141,6 +152,8 @@ Cada subagente recebe um **prompt auto-contido** com:
 Nota: subagentes não podem spawnar outros subagentes — dimensione a granularidade do prompt pra que cada um resolva inline.
 
 ### 4c. Deliverable único ou com deps internas → executar inline
+
+**Auto-labeling:** mesmo padrão do 4b — se GITHUB_MODE e deliverable tem Issue, mudar label pra `status:in-progress`.
 
 Execute sequencialmente. Para cada deliverable/step:
 

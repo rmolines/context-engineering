@@ -272,6 +272,81 @@ Se `.claude/state/campaigns.md` existe e tem campaigns ativas:
    ```
 4. Criar milestone `[Backlog]` se não existe
 
+### Projects V2 (se PROJECTS_MODE=true)
+
+Referência: `skills/shared/github-detection.md` — seção "Projects V2".
+
+Se `PROJECTS_MODE=false` (scope `project` ausente): pular silenciosamente. Issues/milestones funcionam sem board.
+
+#### Criar/encontrar Project (idempotente)
+
+```bash
+# Checar se já existe
+EXISTING=$(gh project list --owner {owner} --format json | jq -r '.projects[] | select(.title == "CE: {repo-name}") | .number')
+if [ -z "$EXISTING" ]; then
+  PROJECT_NUMBER=$(gh project create --owner {owner} --title "CE: {repo-name}" --format json | jq -r '.number')
+else
+  PROJECT_NUMBER=$EXISTING
+fi
+```
+
+#### Criar custom fields (idempotente — checar com field-list antes)
+
+```bash
+# Checar campos existentes
+EXISTING_FIELDS=$(gh project field-list $PROJECT_NUMBER --owner {owner} --format json | jq -r '.fields[].name')
+
+# Campaign (single select com opções das campaigns ativas)
+echo "$EXISTING_FIELDS" | grep -q "Campaign" || \
+  gh project field-create $PROJECT_NUMBER --owner {owner} \
+    --name "Campaign" --data-type SINGLE_SELECT \
+    --single-select-options "[C1],[C2],[C3],[Backlog]"
+
+# Size
+echo "$EXISTING_FIELDS" | grep -q "Size" || \
+  gh project field-create $PROJECT_NUMBER --owner {owner} \
+    --name "Size" --data-type SINGLE_SELECT \
+    --single-select-options "S,M,L"
+```
+
+Nota: o campo "Status" já vem criado por default (Todo, In Progress, Done).
+
+#### Cache de node IDs
+
+Obter todos os IDs necessários com 1 query GraphQL e salvar em `.claude/state/.github-project-cache.json`:
+
+```bash
+gh api graphql -f query='query($login: String!, $number: Int!) {
+  user(login: $login) { projectV2(number: $number) { id fields(first: 20) { nodes {
+    ... on ProjectV2SingleSelectField { id name options { id name } }
+    ... on ProjectV2Field { id name }
+  }}}}
+}' -F login="{owner}" -F number=$PROJECT_NUMBER
+```
+
+Parsear o output e salvar cache JSON (ver formato em `skills/shared/github-detection.md`).
+
+Se o cache já existe e o `projectNumber` bate: verificar se campos mudaram (comparar nomes). Se mudaram, regenerar. Se não, reusar.
+
+#### Adicionar issues ao board
+
+Após o rebuild do STATE.md (step abaixo), para cada issue aberta que não está no board:
+
+```bash
+ITEM_ID=$(gh project item-add $PROJECT_NUMBER --owner {owner} --url {issue_url} --format json | jq -r '.id')
+# Setar Campaign e Size usando IDs do cache
+gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID \
+  --field-id $CAMPAIGN_FIELD_ID --single-select-option-id $CAMPAIGN_OPTION
+gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID \
+  --field-id $SIZE_FIELD_ID --single-select-option-id $SIZE_OPTION
+```
+
+#### Orientação de automações
+
+Na primeira criação do Project, informar:
+> "Project V2 criado: {url}. Recomendo habilitar automações built-in na UI:
+> Settings → Workflows → 'Item added' → Status = Todo / 'Issue closed' → Status = Done"
+
 ### STATE.md — rebuild do cache
 
 Regenerar STATE.md a partir do GitHub:
@@ -303,6 +378,26 @@ Regenerar STATE.md a partir do GitHub:
 
 Se não houver issues no GitHub: manter STATE.md local existente (não sobrescrever com arquivo vazio).
 
+### Classificação de issues (bidirecional)
+
+Ao processar issues do `gh issue list`, classificar cada uma:
+
+- **Issues com label `plan:*`** → conhecidas (criadas pelo /plan). Tratar normalmente.
+- **Issues sem label `plan:*`** → criadas manualmente no GitHub:
+  - Com milestone → item de campaign (mostrar na seção Active do STATE.md com nota `[manual]`)
+  - Sem milestone → backlog (adicionar na seção Backlog)
+- **Issues fechadas desde último sync** → mover pra Completed
+
+### Detecção de mudanças
+
+Guardar timestamp do último sync no header do STATE.md:
+```markdown
+<!-- Generated from GitHub at YYYY-MM-DDTHH:MM:SSZ — do not edit manually -->
+<!-- Last sync: YYYY-MM-DDTHH:MM:SSZ -->
+```
+
+Comparar issues atuais com o STATE.md anterior pra detectar mudanças desde a última sessão.
+
 ### campaigns.md — refresh de signals
 
 Para cada milestone que mapeia a uma campaign:
@@ -315,6 +410,32 @@ Para cada milestone que mapeia a uma campaign:
 Leia `.claude/state/STATE.md` e mostre overview:
 
 > Se STATE.md tem header `<!-- Generated from GitHub -->`: indicar que está em GitHub mode e as issues são a fonte de verdade.
+
+Se GITHUB_MODE=true e STATE.md tem timestamp de último sync:
+```
+⚡ Mudanças detectadas no GitHub desde última sessão:
+- N issues novas: #N "título", #M "título"
+- N issues fechadas: #N "título" (via PR #M)
+- N issues atualizadas
+```
+Se não houve mudanças: não mostrar nada extra.
+
+### Stale issues (se GITHUB_MODE=true)
+
+Verificar issues abertas sem atividade recente:
+```bash
+gh issue list --state open --json number,title,updatedAt,labels --limit 100
+```
+
+Filtrar issues com `updatedAt` > 30 dias atrás. Se encontrar:
+```
+⚠ Issues paradas há 30+ dias:
+- #N título — última atividade: YYYY-MM-DD (Nd)
+Ação: fechar, mover pro backlog, ou atualizar com contexto.
+```
+
+Não fechar automaticamente — só informar. O usuário decide.
+Se todas as issues são recentes: não mostrar nada.
 
 ```
 Project State:

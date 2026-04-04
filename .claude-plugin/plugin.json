@@ -1,7 +1,7 @@
 {
   "name": "ce",
-  "version": "2.0.0",
-  "description": "Context Engineering — session protocol that gives every AI session the right context at the right time. 4 core skills: bootstrap (context in), discovery (upstream spec), delivery (downstream build), persist (context out).",
+  "version": "2.1.0",
+  "description": "Context Engineering — session protocol that gives every AI session the right context at the right time. 4 core skills: bootstrap (context in), discovery (upstream spec), delivery (downstream build), persist (context out). VC skills: invest (spawn founder), board (board meeting), fund (portfolio management).",
   "author": {
     "name": "rmolines"
   },

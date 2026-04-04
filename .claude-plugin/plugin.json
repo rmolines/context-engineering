@@ -1,5 +1,10 @@
 {
-  "name": "context-engineering",
-  "version": "1.0.0",
-  "description": "Session protocol for Claude Code — context management across sessions with skills for bootstrapping, discovery, planning, execution, persistence, and distillation."
+  "name": "ce",
+  "version": "2.0.0",
+  "description": "Context Engineering — session protocol that gives every AI session the right context at the right time. 4 core skills: bootstrap (context in), discovery (upstream spec), delivery (downstream build), persist (context out).",
+  "author": {
+    "name": "rmolines"
+  },
+  "repository": "https://github.com/rmolines/context-engineering",
+  "license": "MIT"
 }

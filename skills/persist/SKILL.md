@@ -3,172 +3,174 @@ name: persist
 description: "Persistir estado da sessão atual pro disco. Usar ao finalizar uma tarefa, antes de /clear, ou ao encerrar sessão. Salva progresso, decisões e contexto para que sessões futuras continuem de onde parou. Auto-invocar quando o usuário disser: 'vou encerrar', 'sessão nova', 'contexto limpo', 'vou fechar', 'até a próxima', 'vamos terminar', 'terminar a sessão', 'terminar o trabalho', 'parar por aqui', 'vou parar'."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
 argument-hint: ""
+model: haiku
+effort: low
 ---
 
-# /persist — Salvar estado da sessão
+# /persist — Context out
 
-## Step 1 — Triage (inline, rápido)
+> Architecture reference: `ARCHITECTURE.md` § "Persist — context out"
+> Saves session learnings so future sessions continue where this one left off.
 
-Reflita sobre a sessão e rode `git diff --stat` + `git log --oneline -10` pra complementar.
+## Step 1 — Triage (inline, fast)
 
-Classifique o que precisa persistir:
+Reflect on the session. Run `git diff --stat` + `git log --oneline -10` to complement.
 
-| Tipo | Condição | Ação |
-|------|----------|------|
-| **Workstream** | Houve progresso em trabalho com continuidade | Atualizar/criar .md em `.claude/state/` + STATE.md |
-| **Memory** | Aprendizado novo sobre usuário, projeto ou feedback não-óbvio | Salvar/atualizar em `~/.claude/projects/.../memory/` |
-| **Direction** | Decisão de direção de produto (tese, princípios, arquitetura macro) | Sugerir ao usuário (não editar automaticamente) |
-| **Domain drift** | Código de APIs, auth, schema ou actions mudou mas `.claude/docs/` não foi atualizado | Alertar e sugerir atualização do domain map |
-| **Campaign signal** | Sessão avançou uma campaign ou revelou algo inesperado | Atualizar signals em `.claude/state/campaigns.md` |
+Classify what needs persisting:
 
-**GitHub mode:** Se `GITHUB_MODE=true` (ver `skills/shared/github-detection.md`), os tipos Campaign signal e Workstream ganham sync com GitHub (detalhes nos steps abaixo).
+| Type | Condition | Action |
+|------|-----------|--------|
+| **Execution log** | Worked on an Issue (discovery or delivery) | Update/create execution-log.md in Issue directory |
+| **Milestone signal** | Session advanced a Milestone or revealed something unexpected | Append signal to milestone.md + sync to GitHub |
+| **Memory** | New learning about user, project, or non-obvious feedback | Save/update in `~/.claude/projects/.../memory/` |
+| **Direction** | Product direction decision (thesis, principles, macro architecture) | Suggest to user (don't edit automatically) |
+| **Domain drift** | API, auth, schema, or actions code changed but `.claude/docs/` not updated | Alert and suggest domain map update |
 
-**Skip agressivo:** se a sessão foi pontual (bugfix, pergunta respondida, exploração sem decisão), diga "nada a persistir" e pare. Não forçar burocracia em sessão que não precisa.
+**GitHub mode:** If `GITHUB_MODE=true` (see `skills/shared/github-detection.md`), Milestone signal and Execution log gain GitHub sync (details below).
 
-## Step 2 — Executar em paralelo
+**Aggressive skip:** if the session was one-off (quick bugfix, question answered, exploration without decisions), say "nothing to persist" and stop. Don't force bureaucracy on sessions that don't need it.
 
-Pra cada tipo marcado como relevante no triage, executar simultaneamente:
+## Step 2 — Execute in parallel
 
-### Workstream (subagente haiku se necessário, inline se simples)
+For each type marked as relevant in triage:
 
-Leia `.claude/state/STATE.md` pra ver workstreams existentes.
+### Execution log (inline or haiku subagent)
 
-- Workstream existente → **atualize** as seções que mudaram (não reescrever tudo)
-- Trabalho novo com continuidade → crie `.claude/state/<nome>.md`:
+If the session worked on a specific Issue:
+
+1. Find the Issue directory: `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/`
+2. If directory doesn't exist: create it
+3. If `execution-log.md` doesn't exist: create from template `templates/state/issue/execution-log.md`
+4. Append session entry:
 
 ```markdown
-# {Nome}
-> Last updated: {YYYY-MM-DD}
+### YYYY-MM-DD — Session N
 
-## Objetivo
-## Estado atual
-## Decisões tomadas
-## Contexto para próxima sessão
+**What was done:**
+- {action 1}
+- {action 2}
+
+**Problems encountered:**
+- {problem and resolution}
+
+**Decisions made:**
+- {decision and rationale}
 ```
 
-Seções opcionais (só se relevante): `Tentativas que falharam`, `Pendências e blockers`.
+### Execution log → GitHub Issue comment (if GITHUB_MODE=true)
 
-Atualize STATE.md: mover entre Active/Completed, adicionar ao Backlog se surgiram ideias.
+Offer (don't force) to register session context as comment on the relevant Issue:
 
-### Workstream → GitHub issue comment (se GITHUB_MODE=true)
-
-Oferecer (não forçar) ao usuário registrar contexto de sessão como comment na issue mais relevante:
-
-1. Verificar se há plano ativo com deliverables que têm campo `Issue: #N`
-2. Se sim, perguntar:
-   > "Quer registrar o contexto desta sessão como comentário no issue #N (<título>)?"
-3. Se sim:
+1. Check if the Issue has a number (is on GitHub)
+2. If yes, ask:
+   > "Register session context as comment on Issue #N ({title})?"
+3. If yes:
    ```bash
    gh issue comment N --body "$(cat <<'EOF'
    ## Session update [YYYY-MM-DD]
 
-   **Decisões:** <decisões-chave da sessão>
-   **Próxima sessão:** <contexto para continuação>
-   **Arquivos-chave:** <paths relevantes>
+   **What was done:** {summary}
+   **Decisions:** {key decisions}
+   **Next session:** {continuation context}
+   **Key files:** {relevant paths}
    EOF
    )"
    ```
 
-Se não houver issues abertas no plano ativo: não oferecer.
+If no open Issues were worked on: don't offer.
 
-### Memory (subagente haiku)
+### Milestone signal (inline, fast)
 
-Só se tem aprendizado novo que muda como sessões futuras operam:
-- Preferências do usuário → `type: user` ou `type: feedback`
-- Decisão de projeto não-óbvia → `type: project`
-- Referência externa útil → `type: reference`
+If `.claude/state/milestones/` exists and has milestone docs:
 
-**Atualizar** memória existente em vez de duplicar. Verificar MEMORY.md antes.
-
-Não salvar: estado de código, paths, soluções de debug, nada derivável do git.
-
-### Domain drift detection (inline, rápido)
-
-Se `.claude/docs/index.md` existe:
-1. Rode `git diff --stat` e verifique se houve mudanças em:
-   - `src/app/api/` ou `app/api/` ou `pages/api/` (rotas API)
-   - Arquivos com `'use server'` (server actions)
-   - Arquivos de auth (`auth.ts`, `session.ts`, `api-auth.ts`, `proxy.ts`)
-   - Arquivos de DB/schema (`db-*.ts`, `schema.prisma`, `migrations/`)
-   - `.env*` (environment variables)
-2. Se houve mudanças nesses paths E `.claude/docs/index.md` não foi modificado na mesma sessão:
-   - Alerte o usuário:
-     > **Domain map pode estar desatualizado.** Houve mudanças em [APIs/auth/schema/actions]. Quer atualizar `.claude/docs/index.md`?
-   - Se sim: releia os arquivos modificados e atualize os pointers relevantes no domain map
-   - Se não: registre no prompt de continuação que o domain map pode precisar de atualização
-
-Se `.claude/docs/index.md` não existe: não faça nada (o projeto pode não usar o sistema).
-
-### Campaign feedback (inline, rápido)
-
-Se `.claude/state/campaigns.md` existe E tem campaigns ativas:
-
-1. Identificar qual campaign a sessão avançou — inferir do trabalho feito: commits, arquivos editados, contexto da conversa.
-2. Se a sessão mapeia a uma campaign → adicionar signal datado na seção da campaign:
+1. Identify which Milestone the session advanced — infer from work done: commits, edited files, conversation context
+2. If session maps to a Milestone → append dated signal to `milestone.md`:
    ```
-   - [YYYY-MM-DD] {observação concreta do que a sessão revelou}
+   - [YYYY-MM-DD] {concrete observation from the session}
    ```
-   Signals são observações emergentes, não resumo de trabalho. Exemplos:
-   - "setup local é o maior gargalo, não os docs" (insight)
-   - "pattern X não escala pra N>100" (descoberta)
-   - "usuário priorizou Y sobre Z apesar do plano dizer o contrário" (divergência)
-3. Se a sessão NÃO mapeia a nenhuma campaign → registrar no final do arquivo:
+   Signals are emergent observations, not work summaries. Examples:
+   - "local setup is the biggest bottleneck, not docs" (insight)
+   - "pattern X doesn't scale for N>100" (discovery)
+   - "user prioritized Y over Z despite spec saying otherwise" (divergence)
+
+3. If session does NOT map to any Milestone → append to the most recent milestone doc:
    ```
-   - [YYYY-MM-DD] ⚡ Sessão fora de campaign: {descrição do trabalho}. Possível estratégia emergente.
+   - [YYYY-MM-DD] ⚡ Session outside Milestones: {work description}. Possible emergent strategy.
    ```
-4. Verificar acúmulo de divergência: se 3+ sessões consecutivas não mapeiam a nenhuma campaign:
-   > "As últimas sessões não avançaram nenhuma campaign ativa. Isso pode indicar que as campaigns precisam ser revisadas ou que surgiu uma nova direção. Quer revisar o Commander's Intent?"
 
-### Campaign signal → GitHub (se GITHUB_MODE=true)
+4. Check divergence: if 3+ consecutive sessions don't map to any Milestone:
+   > "Recent sessions haven't advanced any active Milestone. This may indicate the Milestones need review or a new direction has emerged. Review Commander's Intent?"
 
-Após escrever o signal localmente em campaigns.md:
+### Milestone signal → GitHub (if GITHUB_MODE=true)
 
-1. Identificar o milestone da campaign:
+After writing the signal locally:
+
+1. Find the GitHub Milestone:
    ```bash
    gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title | startswith("[CN]")) | {number, description}'
    ```
-2. Ler description atual do milestone
-3. Append o signal datado ao bloco `## Signals` na description:
-   ```
-   - [YYYY-MM-DD] {observação concreta}
-   ```
-4. Atualizar:
+2. Read current Milestone description
+3. Append the dated signal to the `## Signals` section
+4. Update:
    ```bash
    gh api repos/{owner}/{repo}/milestones/{number} \
      --method PATCH \
-     --field description="<description atualizada>"
+     --field description="{updated description}"
    ```
-5. **Limite de tamanho:** se description > 900 chars, avisar o usuário que signals antigos devem ser arquivados (milestone descriptions têm limite ~1024 chars). Não truncar automaticamente.
+5. **Size limit:** if description > 900 chars, warn user that old signals should be archived. Don't truncate automatically.
 
-Se a detecção GitHub falhar: pular silenciosamente (o signal local já foi salvo).
+If GitHub detection fails: skip silently (local signal already saved).
 
-Se `.claude/state/campaigns.md` não existe: não fazer nada (o projeto pode não usar o nível operacional).
+### Memory (haiku subagent)
 
-### Direction (inline, só sugerir)
+Only if there's new learning that changes how future sessions operate:
+- User preferences → `type: user` or `type: feedback`
+- Non-obvious project decision → `type: project`
+- Useful external reference → `type: reference`
 
-Se uma decisão de direção foi tomada:
-> "A direção do projeto pode ter mudado. Quer atualizar `## Direction` no CLAUDE.md?"
+**Update** existing memory instead of duplicating. Check MEMORY.md first.
 
-Só editar com confirmação explícita.
+Don't save: code state, paths, debug solutions — anything derivable from git.
 
-## Step 3 — Prompt de continuação + resumo
+### Domain drift detection (inline, fast)
 
-Gere um bloco copiável pra próxima sessão:
+If `.claude/docs/index.md` exists:
+1. Run `git diff --stat` and check for changes in:
+   - `src/app/api/` or `app/api/` or `pages/api/` (API routes)
+   - Files with `'use server'` (server actions)
+   - Auth files (`auth.ts`, `session.ts`, `api-auth.ts`, `proxy.ts`)
+   - DB/schema files (`db-*.ts`, `schema.prisma`, `migrations/`)
+   - `.env*` (environment variables)
+2. If changes in those paths AND `.claude/docs/index.md` not modified this session:
+   > **Domain map may be outdated.** Changes detected in [APIs/auth/schema/actions]. Update `.claude/docs/index.md`?
+
+If `.claude/docs/index.md` doesn't exist: do nothing.
+
+### Direction (inline, suggest only)
+
+If a direction decision was made:
+> "Project direction may have changed. Update Commander's Intent in CLAUDE.md?"
+
+Only edit with explicit confirmation.
+
+## Step 3 — Continuation prompt + summary
+
+Generate a copyable block for next session:
 
 ```
-## Continuação de sessão
+## Session continuation
 
-### Contexto
-<!-- O que, qual workstream, decisões-chave — 2-3 frases -->
+### Context
+<!-- What, which Issue/Milestone, key decisions — 2-3 sentences -->
 
-### Próximos passos
-<!-- Ações concretas na ordem -->
+### Next steps
+<!-- Concrete actions in order -->
 
-### Arquivos-chave
-<!-- Paths relevantes -->
+### Key files
+<!-- Relevant paths -->
 
-### Campaign
-<!-- Qual campaign esta sessão avançou, se alguma -->
+### Milestone
+<!-- Which Milestone this session advanced, if any -->
 ```
 
-Mostre ao usuário o que foi salvo (1-2 linhas) + o prompt acima.
+Show user what was saved (1-2 lines) + the prompt above.

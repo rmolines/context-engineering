@@ -3,6 +3,10 @@ name: distill
 description: "Cristaliza um fluxo da sessão atual em skill nova ou atualização de skill existente. Analisa o que foi feito, extrai o padrão repetível, identifica anti-patterns aprendidos, e formaliza tudo. Usar quando um fluxo manual deu certo e vale ser reutilizável. Triggers: 'distill', 'cristaliza isso', 'formaliza esse fluxo', 'transforma em skill', 'quero reusar isso', 'salva esse workflow'."
 ---
 
+> ℹ️ **Note:** This skill remains independent in the Architecture v2 model.
+> It's a utility for crystallizing session workflows into reusable skills.
+> See `ARCHITECTURE.md` for the overall system design.
+
 # Distill
 
 Transforma um fluxo que aconteceu na sessão em conhecimento reutilizável.

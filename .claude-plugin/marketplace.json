@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "ce",
-      "source": "./",
+      "source": "../",
       "description": "Context Engineering — session protocol that gives every AI session the right context at the right time. 4 core skills: bootstrap, discovery, delivery, persist."
     }
   ]

@@ -12,7 +12,58 @@ effort: low
 > Architecture reference: `ARCHITECTURE.md` § "Persist — context out"
 > Saves session learnings so future sessions continue where this one left off.
 
-## Step 1 — Triage (inline, fast)
+## Step 0 — Hygiene (inline, fast)
+
+Run git diagnostics in parallel before any context work:
+
+```bash
+git diff --stat
+git diff --cached --stat
+git status --short
+git worktree list
+git branch -vv
+```
+
+Process results. All actions are opt-in — never delete or commit silently.
+
+### Uncommitted changes
+If `git diff --stat` or `git diff --cached --stat` shows changes:
+> "N files with uncommitted changes. Commit before persisting?"
+- If yes: stage all modified tracked files, auto-generate conventional commit message from diff summary, commit.
+- If no: continue.
+
+### Untracked files
+If `git status --short` shows `??` entries:
+- **Ignore:** `.claude/` and all its contents (local state, expected untracked)
+- For remaining untracked files, present list:
+  > "N untracked files: {list}. Commit, or skip?"
+  - If commit: stage and commit with `chore: add {description}` message.
+  - If skip: continue.
+
+### Orphan worktrees
+If `git worktree list` shows entries beyond the main working tree:
+- For each extra worktree, check: `git log main..{branch} --oneline`
+- If no unmerged commits:
+  > "Worktree {name} is fully merged. Remove?"
+  - If yes: `git worktree remove {path}` + `git branch -d {branch}`
+- If has unmerged commits:
+  > "Worktree {name} has N unmerged commits: {list}. Remove anyway?"
+  - If yes: `git worktree remove --force {path}` + `git branch -D {branch}`
+  - If no: keep.
+
+### Branches gone
+If `git branch -vv` shows `[gone]` entries, present list:
+> "N branches with deleted remote: {list}. Clean up?"
+- If yes: `git branch -d {branch}` for each (use `-D` if `-d` fails).
+
+### Skip condition
+If all 4 checks find nothing actionable: output `✓ Repo clean` and proceed to Step 2.
+
+### Error handling
+If any git command fails: skip that check silently, continue with remaining checks.
+**Hygiene never blocks the persist flow.**
+
+## Step 2 — Triage (inline, fast)
 
 Reflect on the session. Run `git diff --stat` + `git log --oneline -10` to complement.
 
@@ -30,7 +81,7 @@ Classify what needs persisting:
 
 **Aggressive skip:** if the session was one-off (quick bugfix, question answered, exploration without decisions), say "nothing to persist" and stop. Don't force bureaucracy on sessions that don't need it.
 
-## Step 2 — Execute in parallel
+## Step 3 — Execute in parallel
 
 For each type marked as relevant in triage:
 
@@ -153,7 +204,7 @@ If a direction decision was made:
 
 Only edit with explicit confirmation.
 
-## Step 3 — Continuation prompt + summary
+## Step 4 — Continuation prompt + summary
 
 Generate a copyable block for next session:
 

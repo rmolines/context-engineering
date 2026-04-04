@@ -3,285 +3,192 @@ name: bootstrap
 description: "Carregar estado do projeto, inicializar o que falta, alinhar sessão. Idempotente — sempre seguro de rodar. Detecta automaticamente se precisa inicializar ou recarregar. Usar: '/bootstrap' em qualquer projeto, a qualquer momento. '/bootstrap migrate-to-github' migra estado local para GitHub Issues/Milestones."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
 argument-hint: "[migrate-to-github]"
+model: haiku
+effort: low
 ---
 
-# /bootstrap — Gestão de estado do projeto
+# /bootstrap — Context in
+
+> Architecture reference: `ARCHITECTURE.md` § "Bootstrap — context in"
+> This skill is idempotent — always safe to run.
 
 **Input:** `$ARGUMENTS`
 
-| Input | Modo |
+| Input | Mode |
 |---|---|
-| vazio | DEFAULT — detectar, inicializar, carregar, alinhar |
-| `migrate-to-github` | MIGRATE — migrar estado local para GitHub Issues/Milestones |
+| empty | DEFAULT — detect, initialize, load, align |
+| `migrate-to-github` | MIGRATE — migrate local state to GitHub Issues/Milestones |
 
 ---
 
-## Modo MIGRATE (migrate-to-github)
+## Mode MIGRATE (migrate-to-github)
 
-Migra campaigns e deliverables de planos locais para GitHub Issues/Milestones.
+Migrates local state (legacy campaigns.md, plan files) to GitHub Issues/Milestones and new disk structure.
 
-Referência: `skills/shared/github-detection.md` — rodar detecção. Se `GITHUB_MODE=false`: abortar com mensagem clara.
+Reference: `skills/shared/github-detection.md` — run detection. If `GITHUB_MODE=false`: abort with clear message.
 
-### Step 1 — Auditar estado local
+### Step 1 — Audit local state
 
-1. Ler `.claude/state/campaigns.md` → listar campaigns ativas E completadas
-2. Ler todos os `plan-*.md` em `.claude/state/`:
-   - Status `active` → listar deliverables sem campo `Issue: #N`
-   - Status `completed` → contar (histórico a migrar como milestones fechados)
-3. Ler seção `## Strategic Review Log` do campaigns.md (se existir)
-4. Apresentar resumo ao usuário:
-   ```
-   Migração para GitHub:
+1. Read `.claude/state/campaigns.md` (if exists) → list Milestones active + completed
+2. Read `plan-*.md` in `.claude/state/` (if any):
+   - Status `active` → list deliverables without `Issue: #N`
+   - Status `completed` → count (history to migrate as closed Milestones)
+3. Read `## Strategic Review Log` from campaigns.md (if exists)
+4. Scan `.claude/state/milestones/` for any new-format docs already present
+5. Present summary and ask for confirmation before creating anything
 
-   Estado ativo:
-   - N campaigns ativas → milestones abertos
-   - N deliverables sem issue → issues a criar
+### Step 2 — Create Milestones (idempotent)
 
-   Histórico:
-   - N campaigns completadas → milestones fechados
-   - N planos completados (ficam locais — sem issues retroativas)
-   - Strategic Review Log → comment no milestone mais recente
-   ```
-5. Pedir confirmação antes de criar qualquer coisa
+For each active campaign/milestone:
+1. Check if Milestone `[CN] name` already exists on GitHub
+2. If not: create via `gh api repos/{owner}/{repo}/milestones --method POST`
+3. Create `[Backlog]` Milestone if not exists
 
-### Step 2 — Criar milestones das campaigns (idempotente)
+For each completed campaign: create as closed Milestone.
 
-#### Campaigns ativas
-Para cada campaign ativa:
-1. Verificar se milestone `[CN] nome` já existe
-2. Se não: criar via `gh api repos/{owner}/{repo}/milestones --method POST`
-   - Description: Intent + Success state + signals existentes
-3. Criar `[Backlog]` se não existe
+### Step 3 — Create disk structure
 
-#### Campaigns completadas (histórico)
-Para cada campaign na seção `## Completed Campaigns`:
-1. Verificar se milestone já existe (pode ter sido criada antes de completar)
-2. Se não existe: criar milestone com `--field state=closed`:
-   ```bash
-   gh api repos/{owner}/{repo}/milestones \
-     --method POST \
-     --field title="[CN] nome da campaign" \
-     --field description="Intent: ...\nSuccess state: ...\n\n## Signals\n<signals acumulados>\n\n## Resultado\nCompletada em YYYY-MM-DD" \
-     --field state=closed
-   ```
-3. Se já existe mas está aberta: fechar:
-   ```bash
-   gh api repos/{owner}/{repo}/milestones/{number} \
-     --method PATCH \
-     --field state=closed
-   ```
-
-#### Strategic Review Log
-Se campaigns.md tem seção `## Strategic Review Log` com conteúdo:
-1. Encontrar o milestone ativo mais recente (ou o último fechado, se todos fechados)
-2. Adicionar como comment via `gh api`:
-   ```bash
-   gh api repos/{owner}/{repo}/issues/{milestone-tracking-issue}/comments \
-     --method POST \
-     --field body="## Strategic Review Log (migrado)\n\n<conteúdo do log>"
-   ```
-   Alternativa se não houver tracking issue: incluir no description do milestone mais recente (respeitando limite de 1024 chars).
-
-### Step 3 — Criar issues dos deliverables
-
-Para cada plan file **ativo** com deliverables sem `Issue: #N`:
-1. Identificar milestone da campaign do plano
-2. Para cada deliverable sem issue:
-   - Criar label `plan:<slug>` se não existe
-   - Criar issue com `gh issue create` (mesmo formato do /plan step 3.5)
-   - Atualizar plan file: adicionar `**Issue:** #N` ao deliverable
-
-**Planos completados:** não criar issues retroativas. O histórico de execução está nos commits, plan files locais e PRs. Criar issues pra trabalho já feito seria ruído sem valor operacional.
-
-### Step 4 — Rebuild STATE.md
-
-Rodar o mesmo rebuild do step 2.5 do modo DEFAULT (cache do GitHub).
-
-### Step 5 — Report
-
+For each Milestone (active + completed):
 ```
-Migração concluída:
-
-Estado ativo:
-- N milestones abertos criados
-- N issues criados
-- N plan files atualizados
-
-Histórico:
-- N milestones fechados criados (campaigns completadas)
-- Strategic Review Log migrado para [milestone/comment]
-
-STATE.md regenerado do GitHub
+.claude/state/milestones/{slug}/milestone.md
 ```
+Using template `templates/state/milestones/milestone.md`.
+Populate with intent, success state, and signals from campaigns.md.
+
+For each existing Issue on GitHub with a Milestone:
+```
+.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/
+```
+Create directory. If there's a legacy plan file referencing this issue, move relevant content to `plan.md` in the new location.
+
+### Step 4 — Migrate legacy files
+
+- `campaigns.md` → content distributed into individual `milestone.md` files. Archive original as `campaigns.md.archive`.
+- `plan-*.md` → if linked to issues, content moves to `milestones/{slug}/issue-{N}/plan.md`. If not linked, stays as-is with deprecation note.
+- Workstream `.md` files → if they map to an Issue, move to the Issue directory. If standalone, keep in `.claude/state/`.
+
+### Step 5 — Rebuild STATE.md + report
+
+Run the STATE.md rebuild from DEFAULT mode step 2.5. Report what was migrated.
 
 ---
 
-## Modo DEFAULT
+## Mode DEFAULT
 
-Comando idempotente. Detecta o que existe e o que falta, inicializa o necessário, recarrega o estado.
+Idempotent. Detects what exists, initializes what's missing, reloads state.
 
-## 1. Detectar estado
-
-Verifique o que já existe no projeto:
+## 1. Detect state
 
 ```
-STATE.md         = .claude/state/STATE.md existe?
-DOMAIN_MAP       = .claude/docs/index.md existe?
-CI               = .github/workflows/ci.yml existe?
-HAS_PACKAGE_JSON = package.json existe?
-HAS_REMOTE       = git remote get-url origin (sucesso?)
+STATE.md         = .claude/state/STATE.md exists?
+MILESTONES_DIR   = .claude/state/milestones/ exists?
+DOMAIN_MAP       = .claude/docs/index.md exists?
+CI               = .github/workflows/ci.yml exists?
+HAS_PACKAGE_JSON = package.json exists?
+HAS_REMOTE       = git remote get-url origin (success?)
 ```
 
-## 2. Garantir estrutura (idempotente)
+## 2. Ensure structure (idempotent)
 
 ### STATE.md
-- **Se existe:** leia e siga pro step 3
-- **Se não existe:** crie `.claude/state/STATE.md`:
+- **If exists:** read and proceed to step 2.5
+- **If not:** create `.claude/state/STATE.md`:
 
 ```markdown
 # Project State
 
-## Backlog
-
 ## Active
+
+## Backlog
 
 ## Completed
 ```
 
-### Discovery inicial (só se STATE.md foi criado agora)
-- Leia `README.md`, `CLAUDE.md`, `package.json`, `Cargo.toml`, `pyproject.toml` ou equivalente
-- Execute `git log --oneline -20` pra entender atividade recente
-- Execute `git branch -a` pra ver branches ativas
-- Liste diretórios de primeiro nível pra entender a estrutura
+### Initial discovery (only if STATE.md was just created)
+- Read `README.md`, `CLAUDE.md`, `package.json`, `Cargo.toml`, `pyproject.toml` or equivalent
+- Run `git log --oneline -20` for recent activity
+- Run `git branch -a` for active branches
+- List first-level directories for project structure
 
 ### Domain map
-- **Se existe:** pule (drift detection fica no /persist)
-- **Se não existe:** gere `.claude/docs/index.md` com scan do projeto:
+- **If exists:** skip (drift detection is in /persist)
+- **If not:** generate `.claude/docs/index.md` with project scan:
 
 **API Surface:**
-- Procure rotas em `src/app/api/`, `app/api/`, `pages/api/`, `routes/`, ou equivalente do framework
-- Para cada rota: liste o path, métodos HTTP (do export: GET, POST, PUT, DELETE), e auth (procure por middleware, Bearer, session, cookie no arquivo)
-- Formato: `- [nome semântico](path/relativo) — método(s), tipo de auth`
+- Search for routes in `src/app/api/`, `app/api/`, `pages/api/`, `routes/`, or framework equivalent
+- For each route: path, HTTP methods, auth type
+- Format: `- [semantic name](relative/path) — method(s), auth type`
 
 **Server Actions:**
-- Procure arquivos com `'use server'` em `src/app/actions/`, `app/actions/`, ou equivalente
-- Liste cada action exportada com path e propósito (inferido do nome da função)
+- Search for files with `'use server'`
+- List each exported action with path and purpose
 
 **Auth:**
-- Procure por arquivos de auth: `auth.ts`, `session.ts`, `middleware.ts`, `proxy.ts`, `api-auth.ts`
-- Identifique o(s) mecanismo(s): JWT, session cookie, API key, OAuth, etc.
-- Aponte pro(s) arquivo(s) de implementação
+- Look for: `auth.ts`, `session.ts`, `middleware.ts`, `proxy.ts`, `api-auth.ts`
+- Identify mechanism(s): JWT, session cookie, API key, OAuth
+- Point to implementation file(s)
 
 **Data Model:**
-- Procure por: `prisma/schema.prisma`, `drizzle/`, `src/lib/db-*.ts`, `models/`, `schema.ts`, `migrations/`
-- Se ORM: aponte pro schema file
-- Se raw SQL: aponte pros arquivos de query
-- Se tem seed/migration: aponte
+- Look for: `prisma/schema.prisma`, `drizzle/`, `db-*.ts`, `models/`, `schema.ts`, `migrations/`
+- Point to schema/query files
 
 **Canonical Patterns:**
-- Identifique o melhor exemplo de cada tipo que o projeto tem:
-  - Se tem API routes: escolha a mais completa (com auth + validation + error handling)
-  - Se tem pages/components: escolha a mais representativa
-  - Se tem server actions: escolha a mais completa
-- Liste como referência canônica
+- Best example of each type: API route, page/component, server action
+- List as canonical reference
 
 **Environment Variables:**
-- Leia `.env.example`, `.env.template`, `.env.development.local` (se existir)
-- Ou extraia do código: procure por `process.env.` nos arquivos principais
-- Liste cada var com propósito (não valor)
+- Read `.env.example`, `.env.template` or extract from `process.env.` usage
+- List each var with purpose (not value)
 
-Se um projeto não tem alguma dessas seções (ex: CLI tool sem API), omita a seção.
+Omit sections the project doesn't have. Use subagents to parallelize if large.
+Present to user for review before saving.
 
-Use subagentes pra paralelizar o scan se o projeto for grande.
+### Milestones directory
+- **If exists:** skip
+- **If not and GITHUB_MODE=true:** create from GitHub Milestones (step 2.5 handles)
+- **If not and GITHUB_MODE=false:** create empty `.claude/state/milestones/`
 
-Após gerar, apresente o domain map ao usuário pra review antes de salvar.
-
-### Campaigns
-- **Se existe** (`.claude/state/campaigns.md`): pule (já inicializado)
-- **Se não existe:** crie `.claude/state/campaigns.md`:
-
-```markdown
-# Campaigns
-
-Last reviewed: YYYY-MM-DD
-
-## Active Campaigns
-
-<!-- C1: [nome] — [objetivo em 1 linha] | Status: [on-track|at-risk|blocked] -->
-
-## Completed Campaigns
-
-<!-- [nome] — [data de conclusão] -->
-
-## Strategic Review Log
-
-<!-- [data] — [decisão ou ajuste de direção] -->
-```
-
-### CI (só se não existe + tem package.json + tem remote GitHub)
-1. Detecte o stack:
-   - Package manager: procure `pnpm-lock.yaml`, `yarn.lock`, `bun.lockb`, ou default `npm`
-   - Node version: leia `.node-version`, `.nvmrc`, `engines.node` em package.json, ou default `22`
-   - Scripts disponíveis: leia `scripts` em `package.json` — procure `lint`, `type-check`/`typecheck`, `test`, `build`
-2. Gere `.github/workflows/ci.yml` usando o template de CI do diretório `templates/ci/` deste plugin:
-   - Substitua as variáveis `{{...}}` com os valores detectados
-   - Remova steps cujo script não existe (ex: se não tem `lint`, remova o step Lint)
-3. Verifique se a label `ai-generated` existe no repo GitHub:
-   ```bash
-   gh label list | grep ai-generated || gh label create ai-generated --color 1D76DB --description "PR criado por agente AI"
-   ```
-4. Informe o usuário do que foi configurado
+### CI (only if: no CI + has package.json + has GitHub remote)
+1. Detect stack (package manager, Node version, available scripts)
+2. Generate `.github/workflows/ci.yml` from `templates/ci/`
+3. Ensure `ai-generated` label exists on GitHub
+4. Inform user
 
 ## 2.5. GitHub sync
 
-**Executar apenas se** o projeto tem remote GitHub E `gh auth status` retorna sucesso. Se qualquer check falhar: pule silenciosamente e siga com o fluxo local (steps 3+).
+**Run only if** project has GitHub remote AND `gh auth status` succeeds. If any check fails: skip silently and proceed with local flow (steps 3+).
 
-Referência: `skills/shared/github-detection.md` — rodar a detecção descrita lá.
+Reference: `skills/shared/github-detection.md` — run detection.
 
-### Labels (idempotente — criar apenas as que não existem)
-
-Criar cada label com `|| true` pra ignorar erro se já existe:
+### Labels (idempotent)
 
 ```bash
-gh label create "type:deliverable" --color "0052CC" --description "Plan deliverable" || true
-gh label create "type:backlog" --color "FBCA04" --description "Backlog item sem plano ativo" || true
-gh label create "status:ready" --color "0E8A16" --description "Deps satisfeitas, pode executar" || true
-gh label create "status:in-progress" --color "D93F0B" --description "Em andamento" || true
-gh label create "status:blocked" --color "B60205" --description "Bloqueado" || true
-gh label create "size:small" --color "C2E0C6" --description "Pequeno" || true
-gh label create "size:medium" --color "FEF2C0" --description "Médio" || true
-gh label create "size:large" --color "F9D0C4" --description "Grande" || true
+gh label create "priority:urgent" --color "B60205" --description "Urgente" || true
+gh label create "priority:high" --color "D93F0B" --description "Alta" || true
+gh label create "priority:normal" --color "0E8A16" --description "Normal" || true
+gh label create "priority:low" --color "C2E0C6" --description "Baixa" || true
+gh label create "size:S" --color "C2E0C6" --description "Pequeno" || true
+gh label create "size:M" --color "FEF2C0" --description "Médio" || true
+gh label create "size:L" --color "F9D0C4" --description "Grande" || true
+gh label create "ai-generated" --color "1D76DB" --description "PR criado por agente AI" || true
 ```
 
-### Milestones das campaigns (idempotente)
+### Milestones (idempotent)
 
-Se `.claude/state/campaigns.md` existe e tem campaigns ativas:
+Read `.claude/state/milestones/` for existing milestone docs:
+1. For each milestone doc, check if GitHub Milestone exists
+2. If not: create via `gh api repos/{owner}/{repo}/milestones --method POST`
+3. Ensure `[Backlog]` Milestone exists
 
-1. Ler campaigns ativas — cada campaign com formato `### CN: nome`
-2. Para cada campaign ativa, verificar se milestone já existe:
-   ```bash
-   gh api repos/{owner}/{repo}/milestones --jq '.[].title' | grep "^\[CN\]"
-   ```
-3. Se não existe: criar
-   ```bash
-   gh api repos/{owner}/{repo}/milestones \
-     --method POST \
-     --field title="[CN] nome da campaign" \
-     --field description="Intent: ...\nSuccess state: ...\n\n## Signals" \
-     --field state=open
-   ```
-4. Criar milestone `[Backlog]` se não existe
+### Projects V2 (if PROJECTS_MODE=true)
 
-### Projects V2 (se PROJECTS_MODE=true)
+Reference: `skills/shared/github-detection.md` — section "Projects V2".
 
-Referência: `skills/shared/github-detection.md` — seção "Projects V2".
+If `PROJECTS_MODE=false`: skip silently.
 
-Se `PROJECTS_MODE=false` (scope `project` ausente): pular silenciosamente. Issues/milestones funcionam sem board.
-
-#### Criar/encontrar Project (idempotente)
+#### Create/find Project (idempotent)
 
 ```bash
-# Checar se já existe
 EXISTING=$(gh project list --owner {owner} --format json | jq -r '.projects[] | select(.title == "CE: {repo-name}") | .number')
 if [ -z "$EXISTING" ]; then
   PROJECT_NUMBER=$(gh project create --owner {owner} --title "CE: {repo-name}" --format json | jq -r '.number')
@@ -290,25 +197,22 @@ else
 fi
 ```
 
-#### Linkar ao repositório
+#### Link to repository
 
 ```bash
 gh project link $PROJECT_NUMBER --owner {owner} --repo {owner}/{repo}
 ```
 
-Isso faz o project aparecer na aba "Projects" do repo.
-
-#### Criar custom fields (idempotente — checar com field-list antes)
+#### Create custom fields (idempotent)
 
 ```bash
-# Checar campos existentes
 EXISTING_FIELDS=$(gh project field-list $PROJECT_NUMBER --owner {owner} --format json | jq -r '.fields[].name')
 
-# Campaign (single select com opções das campaigns ativas)
-echo "$EXISTING_FIELDS" | grep -q "Campaign" || \
+# Priority
+echo "$EXISTING_FIELDS" | grep -q "Priority" || \
   gh project field-create $PROJECT_NUMBER --owner {owner} \
-    --name "Campaign" --data-type SINGLE_SELECT \
-    --single-select-options "[C1],[C2],[C3],[Backlog]"
+    --name "Priority" --data-type SINGLE_SELECT \
+    --single-select-options "Urgent,High,Normal,Low"
 
 # Size
 echo "$EXISTING_FIELDS" | grep -q "Size" || \
@@ -316,23 +220,23 @@ echo "$EXISTING_FIELDS" | grep -q "Size" || \
     --name "Size" --data-type SINGLE_SELECT \
     --single-select-options "S,M,L"
 
-# Start Date (pra roadmap view)
+# Start Date (for Roadmap view)
 echo "$EXISTING_FIELDS" | grep -q "Start Date" || \
   gh project field-create $PROJECT_NUMBER --owner {owner} \
     --name "Start Date" --data-type DATE
 
-# Target Date (pra roadmap view)
+# Target Date (for Roadmap view)
 echo "$EXISTING_FIELDS" | grep -q "Target Date" || \
   gh project field-create $PROJECT_NUMBER --owner {owner} \
     --name "Target Date" --data-type DATE
 ```
 
-Nota: o campo "Status" já vem criado por default (Todo, In Progress, Done).
-Os campos "Start Date" e "Target Date" habilitam a **Roadmap view** no GitHub Projects.
+Note: Status field is created by default (Todo, In Progress, Done).
+Milestone is a native GitHub field — no custom field needed.
 
-#### Cache de node IDs
+#### Cache field IDs
 
-Obter todos os IDs necessários com 1 query GraphQL e salvar em `.claude/state/.github-project-cache.json`:
+Query GraphQL and save to `.claude/state/project-cache.json`:
 
 ```bash
 gh api graphql -f query='query($login: String!, $number: Int!) {
@@ -343,45 +247,39 @@ gh api graphql -f query='query($login: String!, $number: Int!) {
 }' -F login="{owner}" -F number=$PROJECT_NUMBER
 ```
 
-Parsear o output e salvar cache JSON (ver formato em `skills/shared/github-detection.md`).
+If cache exists and `projectNumber` matches: verify fields haven't changed. If changed, regenerate.
 
-Se o cache já existe e o `projectNumber` bate: verificar se campos mudaram (comparar nomes). Se mudaram, regenerar. Se não, reusar.
+#### Add Issues to board
 
-#### Adicionar issues ao board
-
-Após o rebuild do STATE.md (step abaixo), para cada issue aberta que não está no board:
-
+For each open Issue not yet on the board:
 ```bash
 ITEM_ID=$(gh project item-add $PROJECT_NUMBER --owner {owner} --url {issue_url} --format json | jq -r '.id')
-# Setar Campaign e Size usando IDs do cache
-gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID \
-  --field-id $CAMPAIGN_FIELD_ID --single-select-option-id $CAMPAIGN_OPTION
 gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID \
   --field-id $SIZE_FIELD_ID --single-select-option-id $SIZE_OPTION
 ```
 
-#### Orientação de automações e views
+#### First-time guidance
 
-Na primeira criação do Project, informar:
-> "Project V2 criado: {url}.
-> Recomendo configurar na UI:
+On first Project creation:
+> "Project V2 created: {url}.
+> Recommend configuring in UI:
 > 1. **Workflows:** Settings → Workflows → 'Item added' → Status = Todo / 'Issue closed' → Status = Done
 > 2. **Roadmap view:** + New view → Layout: Roadmap → Date fields: Start Date / Target Date
 > 3. **Board view:** + New view → Layout: Board → Group by: Status"
 
-### STATE.md — rebuild do cache
+### STATE.md — rebuild cache
 
-Regenerar STATE.md a partir do GitHub:
+Regenerate STATE.md from GitHub:
 
-1. Buscar issues abertas:
+1. Fetch open Issues:
    ```bash
    gh issue list --state open --json number,title,milestone,labels --limit 200
    ```
-2. Buscar issues fechadas recentes (30 dias):
+2. Fetch recently closed Issues (30 days):
    ```bash
    gh issue list --state closed --json number,title,milestone,labels,closedAt --limit 50
    ```
-3. Gerar STATE.md com header indicando que é cache:
+3. Generate STATE.md:
 
 ```markdown
 # Project State
@@ -389,136 +287,169 @@ Regenerar STATE.md a partir do GitHub:
 <!-- Regenerated by /bootstrap. Source of truth: GitHub Issues/Milestones. -->
 
 ## Active
-- #N [CN] DN — título (batch:X, size:Y)
+- #N título — Milestone: [CN], size:Y
 
 ## Backlog
 - #N título
 
 ## Completed (last 30 days)
-- #N [CN] DN — título — closed YYYY-MM-DD via PR #M
+- #N título — closed YYYY-MM-DD via PR #M
 ```
 
-Se não houver issues no GitHub: manter STATE.md local existente (não sobrescrever com arquivo vazio).
+If no Issues on GitHub: keep existing STATE.md (don't overwrite with empty).
 
-### Classificação de issues (bidirecional)
+### Disk structure — ensure Issue directories
 
-Ao processar issues do `gh issue list`, classificar cada uma:
+For each open Issue:
+1. Determine Milestone slug (or `backlog/`)
+2. Check if `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/` exists
+3. If not: create directory (files are created by /discovery and /delivery, not bootstrap)
 
-- **Issues com label `plan:*`** → conhecidas (criadas pelo /plan). Tratar normalmente.
-- **Issues sem label `plan:*`** → criadas manualmente no GitHub:
-  - Com milestone → item de campaign (mostrar na seção Active do STATE.md com nota `[manual]`)
-  - Sem milestone → backlog (adicionar na seção Backlog)
-- **Issues fechadas desde último sync** → mover pra Completed
+For each Milestone without a local doc:
+1. Create `.claude/state/milestones/{slug}/milestone.md` from template
+2. Populate with Milestone description from GitHub
 
-### Detecção de mudanças
+### Milestone docs — sync signals
 
-Guardar timestamp do último sync no header do STATE.md:
-```markdown
-<!-- Generated from GitHub at YYYY-MM-DDTHH:MM:SSZ — do not edit manually -->
-<!-- Last sync: YYYY-MM-DDTHH:MM:SSZ -->
+For each Milestone that has a local `milestone.md`:
+1. Read GitHub Milestone description via `gh api`
+2. If there are signals in GitHub not in local doc: add them
+3. If there are signals in local doc not in GitHub: sync to GitHub (append to description)
+
+### Change detection
+
+Compare current Issues with previous STATE.md to detect changes since last session.
+
+If GITHUB_MODE=true and changes detected:
+```
+⚡ Changes since last session:
+- N new Issues: #N "title", #M "title"
+- N closed Issues: #N "title" (via PR #M)
+- N updated Issues
 ```
 
-Comparar issues atuais com o STATE.md anterior pra detectar mudanças desde a última sessão.
+### Stale Issues (if GITHUB_MODE=true)
 
-### campaigns.md — refresh de signals
-
-Para cada milestone que mapeia a uma campaign:
-1. Ler description do milestone via `gh api`
-2. Se há signals no milestone que não estão no campaigns.md local: adicionar
-3. Atualizar campo `Last reviewed:` com data de hoje
-
-## 3. Carregar estado
-
-Leia `.claude/state/STATE.md` e mostre overview:
-
-> Se STATE.md tem header `<!-- Generated from GitHub -->`: indicar que está em GitHub mode e as issues são a fonte de verdade.
-
-Se GITHUB_MODE=true e STATE.md tem timestamp de último sync:
-```
-⚡ Mudanças detectadas no GitHub desde última sessão:
-- N issues novas: #N "título", #M "título"
-- N issues fechadas: #N "título" (via PR #M)
-- N issues atualizadas
-```
-Se não houve mudanças: não mostrar nada extra.
-
-### Stale issues (se GITHUB_MODE=true)
-
-Verificar issues abertas sem atividade recente:
 ```bash
-gh issue list --state open --json number,title,updatedAt,labels --limit 100
+gh issue list --state open --json number,title,updatedAt --limit 100
 ```
 
-Filtrar issues com `updatedAt` > 30 dias atrás. Se encontrar:
+Filter Issues with `updatedAt` > 30 days ago:
 ```
-⚠ Issues paradas há 30+ dias:
-- #N título — última atividade: YYYY-MM-DD (Nd)
-Ação: fechar, mover pro backlog, ou atualizar com contexto.
-```
-
-Não fechar automaticamente — só informar. O usuário decide.
-Se todas as issues são recentes: não mostrar nada.
-
-```
-Project State:
-- [workstream-a] — status curto
-- [workstream-b] — status curto
-Backlog: N items | Completed: N items
-
-Planos ativos:
-- plan-feature-x.md — 3/7 deliverables concluídos, próximo batch: D4+D5
-
-Domain map: .claude/docs/index.md (N endpoints, N auth flows)
+⚠ Stale Issues (30+ days):
+- #N title — last activity: YYYY-MM-DD (Nd)
+Action: close, move to backlog, or update with context.
 ```
 
-Para encontrar planos: liste `plan-*.md` em `.claude/state/` com status != completed.
+Don't auto-close — just inform.
 
-## 3.5. Backbrief operacional
+## 3. Load deep context
 
-**Executar apenas se** `.claude/state/campaigns.md` existe E contém campaigns ativas (seção `## Active Campaigns` com pelo menos uma entrada não-comentada). Caso contrário, pule silenciosamente.
+This is the most important step. The sync (steps 1-2.5) is infrastructure.
+**This step is what makes the session useful.**
 
-Se há campaigns ativas:
+### 3.1. Read active Milestone docs
 
-1. **Resumo de status** — leia campaigns.md e apresente 1 linha por campaign ativa:
-   ```
-   Campaigns ativas:
-   - C1: [nome] — [status]
-   - C2: [nome] — [status]
-   ```
+For each active Milestone (open on GitHub):
+1. Read `.claude/state/milestones/{slug}/milestone.md`
+2. Extract: intent, success state, **last 5 signals** (most recent first)
+3. This tells the agent: what are we trying to achieve and what have we learned
 
-2. **Cruzamento com intenção da sessão** — após o usuário responder o que quer fazer no step 5 (Alinhar), cruze a resposta com as campaigns:
-   - Se a intenção avança uma campaign → mencione: "Isso avança a campaign C1 — {nome}"
-   - Se não há match com nenhuma campaign → pergunte: "Isso é uma campaign nova ou é tática pontual?"
+### 3.2. Read in-progress Issue context
 
-3. **Verificação de cadência** — leia o campo `Last reviewed:` no topo do campaigns.md:
-   - Se a data é >14 dias atrás **ou** não há registros de revisão no Strategic Review Log nos últimos 5+ bootstraps:
-     > "As campaigns não são revisadas desde {data}. Quer fazer uma revisão estratégica rápida?"
+For each open Issue that has local docs:
+1. Check `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/` for:
+   - `discovery.md` → decisions, UX flow, technical spec, acceptance criteria
+   - `plan.md` → decomposition, which deliverables are done/pending
+   - `execution-log.md` → last session entry, problems encountered, decisions made
+2. Classify each Issue:
 
-4. **Detecção de divergência** — se há múltiplas sessões seguidas sem match com nenhuma campaign (signal de divergência entre trabalho real e direção declarada):
-   > "Os signals recentes sugerem que a direção pode ter mudado. Quer revisar o Commander's Intent?"
+| State | How to detect | Priority |
+|---|---|---|
+| **Ready for delivery** | Has discovery.md with acceptance criteria, no open PR | High — can be worked on now |
+| **Delivery in progress** | Has plan.md with pending deliverables, or open PR | High — has momentum |
+| **Blocked** | Execution log mentions blocker, or stale >7 days with plan | Medium — needs attention |
+| **Needs discovery** | No discovery.md, or discovery.md without acceptance criteria | Low — needs human |
+| **Just created** | No local docs at all | Low — needs triage |
 
-## 4. Sugerir workstreams (só se STATE.md foi criado agora)
+### 3.3. Read continuation context
 
-Com base no discovery, sugira workstreams iniciais ao usuário:
-- Branches abertas podem indicar trabalho em andamento
-- PRs abertos (se GitHub) podem ser workstreams
-- Issues recentes podem ser backlog
+Check for the most recent signal across all execution-log.md files:
+- Find the entry with the latest date
+- Extract: "Next session" / "Próxima sessão" / "Next steps" field
+- This is what the previous session's /persist left as handoff
 
-Pergunte ao usuário quais quer registrar.
-Para cada confirmada, crie o .md em `.claude/state/` e atualize STATE.md.
+### 3.4. Read domain map
 
-## 5. Alinhar
+If `.claude/docs/index.md` exists: read it. This gives the agent the project's technical landscape (APIs, auth, schema, patterns).
 
-Pergunte ao usuário: "O que vamos fazer nesta sessão?"
+## 4. Briefing
 
-Com base na resposta:
-- Se match com workstream existente → leia o .md completo dela e resuma o contexto relevante
-- Se match com plano existente → leia o plano, mostre progresso e sugira `/run` pra continuar execução
-- Se é trabalho novo → pergunte se quer criar uma nova workstream ou plano (`/plan <tarefa>`)
-- Se é exploração/pesquisa → sugira `/discover`
+**Present a concise, actionable briefing. Not a data dump — a squad standup.**
 
-Confirme:
-- Workstream ativa e seu estado
-- Plano ativo e próximo batch (se houver)
-- Próximos passos sugeridos (do campo "Contexto para próxima sessão" da workstream)
-- Blockers conhecidos
+Format:
+
+```
+📋 Briefing
+
+[Continuation from last session]
+Last session (YYYY-MM-DD): {what was done}
+Left off at: {continuation context from execution-log}
+
+[Ready for action]
+- #N "title" — ready for /delivery (spec complete, no blockers)
+- #N "title" — delivery in progress, N/M deliverables done
+
+[Needs attention]
+- #N "title" — blocked: {reason}
+- #N "title" — stale (Nd since last activity)
+
+[Needs discovery]
+- #N "title" — no spec yet, needs /discovery
+
+[Milestones]
+- [CN] Name — N open / N closed, momentum: {high|low}
+  Last signal: "{most recent signal}"
+```
+
+**Rules for the briefing:**
+- Only show sections that have content (don't show empty sections)
+- "Ready for action" items first — these are what the user can act on
+- Include the *why* for blocked items, not just the status
+- Continuation context is the most valuable line — put it at the top
+- If nothing is in progress, say so: "Clean slate — no active work."
+
+## 5. Align
+
+**Don't just ask "what are we doing?" — propose based on what you know.**
+
+### If there's continuation context:
+> "Last session left off at: {context}. Continue with that?"
+
+### If there's no continuation but there are ready Issues:
+> "Issue #N ({title}) is ready for delivery — spec complete, no blockers. Start there?"
+
+### If everything is in discovery or blocked:
+> "No Issues ready for delivery. Options:
+> - `/discovery` on #N to complete its spec
+> - Unblock #M by {action}
+> - Something new?"
+
+### If clean slate (no open Issues):
+> "No active work. What's on your mind?"
+
+**After user responds:**
+
+Based on response, **load the relevant deep context**:
+- If working on Issue #N → read its full discovery.md, plan.md, execution-log.md and summarize
+- If working on a Milestone → show all its Issues with states and suggest which to tackle
+- If new request → suggest `/discovery "{request}"` to create a spec'd Issue
+- If exploration → proceed directly, no Issue needed
+
+Confirm:
+```
+Session aligned:
+- Working on: #N "title" (Milestone: [CN])
+- Context loaded: {what was read}
+- Suggested approach: {/discovery or /delivery or direct work}
+```

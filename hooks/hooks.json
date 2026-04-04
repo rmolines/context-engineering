@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash hooks/post-compact.sh",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/post-compact.sh",
             "timeout": 5000
           }
         ]

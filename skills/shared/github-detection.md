@@ -29,7 +29,7 @@ gh auth status 2>/dev/null
 
 ### Decisão: 1 Project por repo
 
-O plugin assume **1 Project V2 por repositório**, nomeado `"CE: {repo-name}"`. Múltiplos projects por repo não são suportados.
+O sistema assume **1 Project V2 por repositório**, nomeado `"CE: {repo-name}"`. Múltiplos projects por repo não são suportados.
 
 **Razão:** cada repo é uma unidade de trabalho com suas campaigns e plans. Um Project é a view visual disso. Para múltiplas perspectivas (só backlog, só campaign X, só sprint atual), usar **saved views com filtros** no mesmo Project — é uma feature nativa do GitHub Projects V2, sem custo de complexidade.
 

@@ -1,14 +1,14 @@
 # Context Engineering
 
-A Claude Code plugin that gives your AI assistant persistent memory across sessions.
+A session protocol for Claude Code that gives your AI assistant persistent memory across sessions.
 
 Most AI coding sessions start from zero. The assistant doesn't know your project's architecture, what you were working on yesterday, or where the important files are. You re-explain the same things every time.
 
 Context engineering fixes this. It's the practice of designing what information an AI sees, when it sees it, and how it's stored between sessions — so every conversation starts with the right context instead of a blank slate.
 
-## What this plugin does
+## What it does
 
-Install it and you get 6 slash commands that form a complete session protocol:
+Install it and you get slash commands that form a complete session protocol:
 
 | Command | What it does |
 |---------|-------------|

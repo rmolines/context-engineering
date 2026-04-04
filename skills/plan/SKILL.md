@@ -5,6 +5,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebS
 argument-hint: "[tarefa | decompose N]"
 ---
 
+> ⚠️ **DEPRECATED:** This skill has been absorbed by `/delivery` (step 3: decompose).
+> The plan concept still exists as agent-internal infrastructure, but is no longer user-facing.
+> Use `/discovery` to create spec'd Issues, then `/delivery #N` to execute.
+> See `ARCHITECTURE.md` for the new model.
+
 # /plan — Planejamento estruturado
 
 **Input:** `$ARGUMENTS`

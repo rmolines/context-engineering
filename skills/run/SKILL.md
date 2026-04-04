@@ -5,6 +5,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebS
 argument-hint: "[DN | --all]"
 ---
 
+> ⚠️ **DEPRECATED:** This skill has been absorbed by `/delivery` (step 4: implement).
+> Delivery handles execution autonomously, including batching, parallelism, and worktree isolation.
+> Use `/delivery #N` to execute a spec'd Issue.
+> See `ARCHITECTURE.md` for the new model.
+
 # /run — Execução de planos
 
 **Input:** `$ARGUMENTS`

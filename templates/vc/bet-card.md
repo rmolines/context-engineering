@@ -7,6 +7,14 @@
 {{why_this_bet_makes_sense}}
 One sentence: what does this startup do and why does it deserve investment?
 
+## Strategy
+
+- **North Star Metric:** {{north_star_metric}}
+- **Where to play:** {{segment_market_niche}}
+- **How to win:** {{differentiator_moat}}
+- **Full strategy:** `.claude/state/fund/bets/{{slug}}/strategy.md`
+- **Current cycle plan:** `.claude/state/fund/bets/{{slug}}/cycles/cycle-{{N}}.md`
+
 ## Startup
 
 - **Repo:** {{repo_url}}
@@ -17,15 +25,17 @@ One sentence: what does this startup do and why does it deserve investment?
 
 - **Runway:** {{N}} runs
 - **Check-in cadence:** Board meeting every {{M}} runs
+- **Retro cadence:** Every 5 runs (founder writes)
 - **Schedule:** Every {{X}} hours via Cloud Scheduled Task
 - **Founder model:** claude-{{model-name}}
 
-## Metrics
+## Cycle Key Results
 
-| Metric | Baseline | Target | Kill threshold |
+| KR | Baseline | Target | Kill threshold |
 |---|---|---|---|
-| {{metric_1}} | {{baseline}} | {{target}} | {{kill_if_below}} |
-| {{metric_2}} | {{baseline}} | {{target}} | {{kill_if_below}} |
+| {{kr_1}} | {{baseline}} | {{target}} | {{kill_if_below}} |
+| {{kr_2}} | {{baseline}} | {{target}} | {{kill_if_below}} |
+| {{kr_3}} | {{baseline}} | {{target}} | {{kill_if_below}} |
 
 ## Scope
 
@@ -47,7 +57,8 @@ One sentence: what does this startup do and why does it deserve investment?
 
 <!-- Board meeting summaries are posted as comments on this Issue -->
 <!-- Founder Run Reports are also posted as comments -->
+<!-- Founder Retros are posted as comments every 5 runs -->
 <!-- VC Directives: post a comment starting with "## VC Directive" -->
 
 ---
-*Managed by CE /invest, /board, /fund skills*
+*Managed by CE /spawn, /board, /fund skills*

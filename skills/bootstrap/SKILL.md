@@ -70,7 +70,7 @@ Create directory. If there's a legacy plan file referencing this issue, move rel
 
 ### Step 5 — Rebuild STATE.md + report
 
-Run the STATE.md rebuild from DEFAULT mode step 2.5. Report what was migrated.
+Run the STATE.md rebuild from DEFAULT mode step 2. Report what was migrated.
 
 ---
 
@@ -174,7 +174,7 @@ Don't auto-close — just inform.
 
 ## 3. Load deep context
 
-This is the most important step. The sync (steps 1-2.5) is infrastructure.
+This is the most important step. The sync (steps 1-2) is infrastructure.
 **This step is what makes the session useful.**
 
 ### 3.1. Read active Milestone docs
@@ -212,11 +212,11 @@ Check for the most recent signal across all execution-log.md files:
 
 If `.claude/docs/index.md` exists: read it. This gives the agent the project's technical landscape (APIs, auth, schema, patterns).
 
-## 4. Briefing
+## 4. Briefing + align
 
-**Present a concise, actionable briefing. Not a data dump — a squad standup.**
+**Present a concise, actionable briefing, then propose next action.**
 
-Format:
+### Briefing format
 
 ```
 📋 Briefing
@@ -248,9 +248,7 @@ Left off at: {continuation context from execution-log}
 - Continuation context is the most valuable line — put it at the top
 - If nothing is in progress, say so: "Clean slate — no active work."
 
-## 5. Align
-
-**Don't just ask "what are we doing?" — propose based on what you know.**
+### Align — propose, don't just ask
 
 ### If there's continuation context:
 > "Last session left off at: {context}. Continue with that?"

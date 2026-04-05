@@ -15,7 +15,7 @@ Key principles:
 
 ## Structure
 
-- `skills/` — 4 core skills (bootstrap, discovery, delivery, persist) + 3 VC skills (spawn, board, fund)
+- `skills/` — 5 core skills (bootstrap, discovery, delivery, persist, distill)
 - `hooks/` — lifecycle hooks (post-compact context recovery)
 - `rules/` — behavioral rules (session cycle, standards, context docs) — not auto-loaded via plugin; embedded in skills
 - `.claude-plugin/plugin.json` — plugin manifest (name: `ce`). Install: `claude --plugin-dir ~/git/context-engineering`
@@ -23,7 +23,6 @@ Key principles:
 - `research/` — foundational research on context engineering
 - `tools/context-viz/` — TUI for visualizing session context (Python/Textual)
 - `ARCHITECTURE.md` — canonical architecture reference (two worlds, skills, disk structure, GitHub mapping)
-- `VC-ARCHITECTURE.md` — canonical VC-Founder reference (3 horizons, spawn/board/fund, founder lifecycle)
 - `CONTEXT-PHILOSOPHY.md` — canonical doctrine reference (facts-first, context strategies)
 
 ## Canonical patterns

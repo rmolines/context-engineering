@@ -1,7 +1,115 @@
-# Context Engineering — Architecture v2
+# Context Engineering — Architecture
 
-> Two worlds, one system: human intent flows through GitHub, agent execution flows through local state.
-> This document is the canonical architecture reference. Skills, templates, and rules derive from it.
+> CE is a context management layer for Claude Code. It configures and optimizes native context layers, and creates new ones — so every session starts with the right context.
+> This document is the canonical reference. Skills, templates, and rules derive from it.
+
+## Foundation: Claude Code context layers
+
+CE doesn't replace Claude Code's context architecture — it manages it. Understanding what's native vs what CE adds is essential.
+
+### Native layers (managed by CE)
+
+| Native layer | Loaded when | What CE does with it |
+|---|---|---|
+| `CLAUDE.md` (project root) | Always-on, every session | `/init` generates fact-first template with Commander's Intent |
+| `.claude/rules/` | Auto (no `paths:`) or lazy (with `paths:`) | `/init` installs session rules (session-cycle, standards, context-docs) |
+| `MEMORY.md` (auto-memory) | Always-on, first 200 lines | `/persist` writes cross-session learnings |
+| `SessionStart` hook | On session start, resume, compact | Post-compact recovery (re-injects state) |
+| Skill descriptions | Always-on (~250 chars each) | Plugin manifest registers CE skills |
+| Subdirectory `CLAUDE.md` | Lazy (when Claude accesses dir) | Not managed by CE |
+
+### CE layers (created by CE)
+
+| CE layer | Where | Purpose | Managed by |
+|---|---|---|---|
+| State directory | `.claude/state/milestones/` | Rich context per Issue (discovery, plan, execution log) | `/discovery`, `/delivery`, `/persist` |
+| Domain map | `.claude/docs/index.md` | Project's technical landscape (APIs, auth, schema, patterns) | `/init` (generates), `/persist` (drift detection) |
+| STATE.md | `.claude/state/STATE.md` | Live snapshot of GitHub Issues/Milestones (session buffer) | `/bootstrap` (generates fresh each session) |
+| GitHub infra | Labels, Milestones, Projects V2 | Human world: request tracking, delivery validation | `/init` (configures) |
+
+### The relationship
+
+```
+┌─ Claude Code native ─────────────────────────────────────┐
+│  CLAUDE.md    Rules    Memory    Hooks    Skills/Plugins  │
+├─ CE manages ─────────────────────────────────────────────┤
+│  ↑ configures and optimizes native layers                │
+│  + creates: domain map, state tracking, milestone docs   │
+│  + connects: GitHub Issues/Milestones as human interface │
+└──────────────────────────────────────────────────────────┘
+```
+
+## Philosophy
+
+### Core principle
+
+> "Find the smallest set of high-signal tokens that maximize the likelihood of the desired outcome."
+
+Context is a finite resource. More tokens != better results. After ~70% window usage, precision degrades. After ~85%, hallucinations increase. The goal is not to load everything — it's to load the **right thing at the right time**.
+
+### Fact-first paradigm
+
+Research consistently shows:
+- **>50% of effective agent context is domain facts**, not behavioral instructions
+- **Code examples produce 5x improvement** over rules alone
+- **Always-on context (100% pass rate) outperforms active retrieval (79%)** for critical knowledge
+
+Most projects over-index on instructions ("how to behave") and under-index on facts ("what exists"). The right balance: **facts first, instructions as minimum necessary.**
+
+| Facts (domain knowledge) | Instructions (behavioral) |
+|---|---|
+| POST /api/leads creates a lead with Bearer auth | Always use conventional commits |
+| Auth uses JWT in cookies for web, API keys for agents | Run /persist before ending session |
+| DB is Neon Postgres, schema in db-*.ts | Follow explore-plan-execute cycle |
+
+**The test:** if Claude would build the wrong thing without this info, it's a fact. If Claude would build the right thing but in a non-preferred style, it's an instruction.
+
+### Pointer > prose
+
+When documenting something that exists in code, point to the file with a short annotation. The code is the single source of truth — prose duplicates and drifts.
+
+```markdown
+# Bad: prose (drifts, wastes tokens)
+The leads API accepts POST with JSON body containing name, domain, segment...
+
+# Good: pointer (zero drift, compact)
+- [leads CRUD](src/app/api/leads/route.ts) — Bearer auth, Zod validation
+```
+
+### Canonical patterns
+
+AI agents perform better when they can pattern-match against existing code. Instead of writing rules about how code should look, point to reference implementations:
+
+```markdown
+## Canonical patterns
+- API route: src/app/api/leads/route.ts (auth, validation, response format)
+- Server Action: src/app/actions/auth.ts (form action + Zod)
+```
+
+### The four strategies
+
+| Strategy | What it means | Native mechanism | CE extension |
+|---|---|---|---|
+| **Write** | Persist state outside the window | MEMORY.md, CLAUDE.md | STATE.md, milestone docs, execution logs |
+| **Select** | Retrieve only what's relevant | Subdirectory CLAUDE.md, `paths:` rules | `/bootstrap` deep loading, progressive disclosure |
+| **Compress** | Summarize to save tokens | (manual) | Pointer > prose doctrine, domain map |
+| **Isolate** | Separate concerns across agents | Subagent fresh windows | Validator subagent pattern, worktree isolation |
+
+### CLAUDE.md budget
+
+Target: <200 lines per file. Recommended allocation:
+
+```
+Identity & Direction     ~10 lines   (facts)
+Canonical Patterns       ~8  lines   (facts)
+Domain Map Pointer       ~2  lines   (fact)
+Structure                ~10 lines   (facts)
+Stack & Conventions      ~15 lines   (mixed)
+Commands                 ~10 lines   (facts)
+Context Discipline       ~5  lines   (instructions)
+                        ─────────
+Total                   ~60 lines    (~75% facts, ~25% instructions)
+```
 
 ## Mental model: Two worlds
 
@@ -15,7 +123,7 @@ The system serves two audiences with different needs:
 | **Audience** | Stakeholder (you) | Claude agents across sessions |
 | **Nature** | Permanent record | Operational context + historical archive |
 
-The human is a **stakeholder**, not a PM. Requests arrive rough — "quero refresh tokens", "tá lento". Claude absorbs PM + Designer + Tech Lead + Dev + QA roles.
+The human is a **stakeholder**, not a PM. Requests arrive rough. Claude absorbs PM + Designer + Tech Lead + Dev + QA roles.
 
 ### Handoff artifact: the Issue
 
@@ -33,12 +141,10 @@ Aligned with GitHub's official terminology:
 |---|---|---|
 | Goal/objective | **Milestone** | Groups related Issues. Description carries intent, success state, signals |
 | Request/task | **Issue** | Spec from discovery: intent, UX flow, acceptance criteria |
-| Quick capture | **Draft Issue** | Backlog idea that lives only in the Project, no repo yet |
+| Quick capture | **Draft Issue** | Backlog idea, lives only in the Project |
 | Delivery | **Pull Request** | Code + validation report, closes the Issue |
-| Visual overview | **Project** (Board/Table/Roadmap layouts) | 1 Project per repo, views for perspectives |
-| Category | **Label** | Classification (priority, type, area) |
-| Sprint/cycle | **Iteration** (field) | Optional time-boxed work periods |
-| Internal decomposition | — (no GitHub equivalent) | Plan file: batches, deps, git strategy (agent only) |
+| Visual overview | **Project** (Board/Table/Roadmap) | 1 Project per repo |
+| Internal decomposition | — | Plan file: batches, deps, git strategy (agent only) |
 
 ### What does NOT go to GitHub
 
@@ -51,27 +157,39 @@ These live on disk as the agent's operational memory and historical archive.
 
 ## Core skills
 
-Two for **context management** (cross-session memory), two for **work** (upstream + downstream):
+Three categories: **infra** (project setup), **context** (session memory), and **work** (upstream + downstream):
 
-| Skill | Domain | Who | Model | Effort |
+| Skill | Category | Who | Model | Effort |
 |---|---|---|---|---|
+| `/init` | Infra | Agent | sonnet | medium |
 | `/bootstrap` | Context in | Agent | haiku | low |
 | `/persist` | Context out | Agent | haiku | low |
-| `/discovery` | Upstream (problem → spec) | Human + Claude | inherited | — |
-| `/delivery` | Downstream (spec → code) | Claude alone | sonnet | high |
+| `/discovery` | Upstream (problem -> spec) | Human + Claude | inherited | -- |
+| `/delivery` | Downstream (spec -> code) | Claude alone | sonnet | high |
+| `/distill` | Meta (workflow -> skill) | Human + Claude | inherited | -- |
+
+### Init — project setup
+
+Configures CE in a project. Runs once (or to check health). Manages both native Claude Code layers and CE layers.
+
+```
+/init
+  ├── diagnose all layers (native + CE)
+  ├── report health (checkmarks)
+  ├── propose fixes (with confirmation)
+  └── execute: CLAUDE.md, domain map, dirs, GitHub, CI
+```
 
 ### Bootstrap — context in
 
-Loads project state, detects new Issues from GitHub, aligns session. Idempotent.
+Loads session context. Runs at start of each session. Query live, never cache.
 
 ```
 /bootstrap
-  ├── detect GitHub mode (issues/milestones/project)
-  ├── rebuild STATE.md from GitHub
-  ├── sync milestone descriptions ↔ local milestone docs
-  ├── detect stale issues (30+ days)
-  ├── report changes since last session
-  └── ask: "what are we doing this session?"
+  ├── detect GitHub mode + check /init ran
+  ├── live sync (gh issue list, STATE.md buffer, issue dirs, milestone sync)
+  ├── deep context loading (milestone docs, issue docs, continuation)
+  └── briefing + align (standup format, propose action)
 ```
 
 ### Persist — context out
@@ -93,91 +211,95 @@ Collaborative. You + Claude explore the problem, research, define the solution. 
 
 ```
 /discovery "rough request"
-  │
   ├── 1. Understand intent (PM role)
-  │     Parse rough request, ask clarifying questions
-  │     Research: internal (codebase, decisions) + external (docs, APIs, state of art)
-  │
-  ├── 2. Propose experience (Designer role)
-  │     User flow: what the end user sees/does
-  │     States: loading, empty, error, success
-  │     Edge cases, consistency with existing patterns
-  │     Reference: design system blocks if available
-  │
-  ├── 3. Validate with you ◀── GATE
-  │     "Here's the proposed flow. Does this make sense?"
-  │     You approve, adjust, or reject
-  │
-  ├── 4. Technical spec (Tech Lead role)
-  │     Translate approved UX into implementable spec
-  │     Research: internal (canonical patterns, deps) + external (lib docs, examples)
-  │
-  └── 5. Output: Issue in GitHub
-        - Intent (what and why, stakeholder language)
-        - UX flow (approved in step 3)
-        - Technical spec (from step 4)
-        - Acceptance criteria (verifiable checklist)
-        - Design notes (states, edge cases, consistency)
-        - Research context (links, decisions, trade-offs)
+  ├── 2. Research: internal (codebase) + external (docs, APIs)
+  ├── 3. Propose experience (Designer role)
+  ├── 4. Validate with you <-- GATE
+  ├── 5. Technical spec (Tech Lead role)
+  └── 6. Create Issue in GitHub
 ```
-
-**Complexity tiers:**
-
-| Complexity | Orchestrator | Subagents |
-|---|---|---|
-| Simple (bug, config tweak) | Inline | None — quick research, create Issue |
-| Medium (new feature, clear scope) | Inline | Haiku: internal research. Sonnet: external research |
-| Complex (architecture, multi-system) | Inline | Sonnet: deep internal research. Sonnet: external research. Haiku: extract data/patterns |
 
 ### Delivery — downstream
 
-Autonomous. Claude picks up an Issue and delivers a PR. Runs in `context: fork`.
+Autonomous. Claude picks up an Issue and delivers a PR.
 
 ```
 /delivery #10
-  │
   ├── 1. Research (sonnet subagent)
-  │     Read Issue spec, relevant code, external docs
-  │     Return: technical context + risks
-  │     ──▶ Notification checkpoint: "Approaching #10 as X in N parts"
-  │
-  ├── 2. Decompose (inline)
-  │     Create internal plan (batches, deps, git strategy)
-  │     This is agent infrastructure, not human-facing
-  │
+  ├── 2. Decompose (internal plan)
   ├── 3. Implement (subagents per deliverable)
-  │     │
-  │     ├── Simple deliverable → haiku subagent
-  │     │   (config, rename, boilerplate, unit tests)
-  │     │
-  │     ├── Medium deliverable → sonnet subagent
-  │     │   (new feature, refactor, integration)
-  │     │
-  │     └── Parallel deliverables → worktree isolation
-  │
-  │     ──▶ Architectural gate (if: new DB table, public API change, interface refactor)
-  │         "Created this structure. OK to proceed?"
-  │
-  ├── 4. Validate (sonnet subagent — isolated)
-  │     Receives ONLY: Issue #10 spec + git diff
-  │     Does NOT inherit implementation context
-  │     Returns: validation report (criteria × evidence)
-  │     ──▶ Failure gate (if validation fails)
-  │         "Criterion X not met. Fix or accept?"
-  │
-  └── 5. Deliver (inline)
-        PR with validation report in body
-        References: Closes #10
-        CI runs as quality gate
+  │     --> Architectural gate (if irreversible decision)
+  ├── 4. Validate (sonnet subagent -- isolated)
+  │     --> Failure gate (if validation fails)
+  └── 5. Deliver (PR with validation report)
 ```
 
 **Checkpoint types:**
 
 | Type | When | Blocks? |
 |---|---|---|
-| Notification | Decomposition done, shows approach | No — continues automatically |
-| Architectural gate | New structure, public API change, irreversible decision | Yes — waits for approval |
-| Failure gate | Validation failed, CI failed, blocker found | Yes — waits for decision |
+| Notification | Decomposition done | No |
+| Architectural gate | New structure, public API change | Yes |
+| Failure gate | Validation failed, CI failed | Yes |
+
+## Operational doctrine
+
+### Three levels (NATO-inspired)
+
+| Level | Artifact | Cadence (write) | Cadence (read) | Mechanism |
+|---|---|---|---|---|
+| Strategic | `CLAUDE.md` Commander's Intent | Rare (milestone/pivot) | Always-on | `/bootstrap` suggests review |
+| Operational | `milestone.md` (per Milestone) | Per session (signals) | `/bootstrap` + `/persist` | Backbrief + SITREP |
+| Tactical | Plan files, execution logs | Per session | `/delivery` + `/bootstrap` | Checkpoint after each batch |
+
+### Commander's Intent
+
+The military concept: communicate the desired end state, not the steps. In CE, `## Commander's Intent` in CLAUDE.md is always-on — every session, every agent sees it. 5-8 lines of product thesis.
+
+### Backbrief and SITREP
+
+Backbrief (in /bootstrap): subordinate repeats intent to commander for confirmation. SITREP (in /persist): situation report — updates signals, detects emergent strategy, suggests review when divergence accumulates.
+
+### Emergent strategy detection
+
+When sessions consistently perform work outside any Milestone, that signals emergent strategy. The system records it and suggests review. Milestones can be created, adjusted, or cancelled based on accumulated signals.
+
+## Context layers — always-on vs progressive disclosure
+
+### Always-on (~200 lines budget)
+
+Auto-loaded at session start. Informs **every** decision.
+
+| Layer | Mechanism | Native? | Content type |
+|---|---|---|---|
+| Project identity | CLAUDE.md root | Native | fact |
+| Direction | CLAUDE.md Commander's Intent | Native | fact |
+| Domain map pointer | CLAUDE.md (1-2 lines) | Native | fact |
+| Canonical patterns | CLAUDE.md (5-8 lines) | Native | fact |
+| Conventions | CLAUDE.md (~15 lines) | Native | mixed |
+| Current state | STATE.md (via /bootstrap) | CE layer | fact |
+| Process guardrails | `.claude/rules/` (~30 lines) | Native | instruction |
+| User profile | MEMORY.md index | Native | fact |
+
+**Note the balance:** ~70% facts, ~30% instructions.
+
+### Progressive disclosure
+
+Loaded on demand. If Claude would only err on **detail** without it, it's disclosure.
+
+| Content | Where | When to load |
+|---|---|---|
+| Domain knowledge (full) | `.claude/docs/index.md` | Operating on APIs, auth, data |
+| Milestone details | `.claude/state/milestones/*/milestone.md` | Working on specific Milestone |
+| Issue context | `.claude/state/milestones/*/issue-*/` | Working on specific Issue |
+| Execution history | `execution-log.md` | Resuming prior work |
+| Research | `research/` | Needing prior research |
+
+**The connecting mechanism is the pointer.** Always-on context contains summaries + links. Claude sees the map, reads the detail when acting.
+
+### Post-compaction recovery
+
+When Claude compacts conversation history (at ~83.5% context usage), CLAUDE.md survives (re-read from disk) but conversation details are lost. A SessionStart hook with `compact` matcher re-injects STATE.md content and domain map pointer.
 
 ## Disk structure
 
@@ -186,7 +308,7 @@ Mirrors GitHub hierarchy. Everything is permanent (historical archive + operatio
 ```
 .claude/
 ├── state/
-│   ├── STATE.md                              # GitHub cache (regenerated by /bootstrap)
+│   ├── STATE.md                              # Session buffer (generated by /bootstrap)
 │   ├── milestones/                           # 1 dir per Milestone
 │   │   ├── c1-dogfooding/
 │   │   │   ├── milestone.md                  # intent, success state, signals, review log
@@ -195,18 +317,14 @@ Mirrors GitHub hierarchy. Everything is permanent (historical archive + operatio
 │   │   │   │   ├── plan.md                   # decomposition, batches, git strategy
 │   │   │   │   └── execution-log.md          # what happened, problems, solutions
 │   │   │   └── issue-12-dark-mode/
-│   │   │       ├── discovery.md
-│   │   │       ├── plan.md
-│   │   │       └── execution-log.md
+│   │   │       └── ...
 │   │   └── c3-validacao-externa/
 │   │       └── milestone.md
-│   ├── backlog/                              # Issues/drafts without Milestone
-│   │   └── issue-4-context-linting.md
 │   └── project-cache.json                    # Project V2 field/option IDs
 ├── docs/
 │   └── index.md                              # domain map (APIs, auth, schema, patterns)
 └── memory/
-    └── MEMORY.md                             # cross-session learnings
+    └── MEMORY.md                             # cross-session learnings (native auto-memory)
 ```
 
 ### Linking conventions
@@ -217,13 +335,13 @@ Every local doc includes a header linking to GitHub:
 <!-- Issue: #10 | Milestone: [C1] Dogfooding | PR: #15 -->
 ```
 
-Every Issue in GitHub is self-sufficient (doesn't require reading local files). Local files are the agent's extended memory, not the source of truth for specs.
+Every Issue in GitHub is self-sufficient. Local files are the agent's extended memory, not the source of truth for specs.
 
 ### GitHub detection layers
 
 | Layer | Condition | Capability |
 |---|---|---|
-| `GITHUB_MODE=false` | No remote or gh not authenticated | Local only (`.claude/state/`) |
+| `GITHUB_MODE=false` | No remote or gh not authenticated | Local only |
 | `GITHUB_MODE=true` | Remote + gh auth OK | Issues, Milestones, Labels, PRs |
 | `PROJECTS_MODE=true` | + `project` scope in gh auth | Project V2 board with custom fields |
 
@@ -233,39 +351,15 @@ Degradation is always silent. No GitHub = local operation, no errors.
 
 1 Project per repo, named `"CE: {repo-name}"`.
 
-**Fields:**
+**Fields:** Status (built-in), Priority, Size, Start Date, Target Date.
 
-| Field | Type | Purpose |
-|---|---|---|
-| Status | Single select (built-in) | Todo → In Progress → Done |
-| Priority | Single select | Urgent, High, Normal, Low |
-| Size | Single select | S, M, L (stakeholder estimate) |
-| Iteration | Iteration field | Optional: time-boxed cycles |
-| Start Date | Date | Roadmap positioning |
-| Target Date | Date | Roadmap positioning |
+**Views:** Board (by Status), Roadmap (Start/Target Date), By Milestone (table).
 
-**Views:**
-
-| View | Layout | Purpose |
-|---|---|---|
-| Board | Board (by Status) | Day-to-day work tracking |
-| Roadmap | Roadmap (Start/Target Date) | Timeline overview |
-| By Milestone | Table (grouped by Milestone) | Campaign progress |
-
-**Automations:**
-
-| Workflow | Action |
-|---|---|
-| Item added | Status → Todo |
-| Issue closed | Status → Done |
-| PR merged | Status → Done |
-| Auto-archive | Archive Done items after 14 days |
-
-Milestone appears as marker in Roadmap view (native GitHub feature).
+**Automations:** Item added -> Todo, Issue closed -> Done, PR merged -> Done, Auto-archive after 14 days.
 
 ## Subagent model
 
-Principle: the more expensive the model, the more it orchestrates and less it executes.
+The more expensive the model, the more it orchestrates and less it executes.
 
 | Work type | Tier |
 |---|---|
@@ -274,22 +368,42 @@ Principle: the more expensive the model, the more it orchestrates and less it ex
 | Mechanical: template, extraction, grep, formatting | Haiku |
 | Validation (requires judgment) | Sonnet (isolated, no implementation context) |
 
-The validator subagent is always isolated — it never inherits context from the implementer. It receives only the Issue spec and the git diff.
+The validator subagent is always isolated — receives only the Issue spec and git diff.
+
+## Skill lifecycle
+
+```
+/init (once) → set up CE layers in the project
+  ↓
+/bootstrap (each session) → load context, align
+  ↓
+/discovery → research + spec into Issue (optional)
+  ↓
+/delivery #N → implement Issue → PR
+  ↓
+/persist → save state + signals + detect drift
+```
+
+Skills are progressive disclosure — only the description (~250 chars) loads until invoked. Full content loads on demand.
 
 ## End-to-end flow
 
 ```
  You (stakeholder)          Claude (squad)              GitHub
  ─────────────────          ──────────────              ──────
+                            /init (first time)
+                              sets up CE layers
+                              configures GitHub ────────► Labels, Milestones
+
                             /bootstrap
                               loads context ◄──────── Issues, Milestones
                               "what are we doing?"
 
- "quero X" ──────────────►  /discovery
+ "quero X" ──────────────► /discovery
                               understands intent
-                              researches (internal + external)
+                              researches
                               proposes UX flow
- "looks good" ◄────────────  validates with you
+ "looks good" ◄──────────── validates with you
                               writes technical spec
                               creates Issue ─────────► Issue #10 (spec)
 
@@ -297,7 +411,7 @@ The validator subagent is always isolated — it never inherits context from the
                               reads Issue ◄──────────── Issue #10
                               decomposes (internal plan)
                               implements (subagents)
-                              validates (isolated subagent)
+                              validates (isolated)
                               opens PR ──────────────► PR #15 (code + report)
                               CI passes ─────────────► auto-merge
                               Issue closes ──────────► #10 Done
@@ -309,3 +423,29 @@ The validator subagent is always isolated — it never inherits context from the
 
  checks board ◄──────────────────────────────────────── Project board updated
 ```
+
+## Constraints and anti-patterns
+
+### Key constraints
+
+- **CLAUDE.md target**: <200 lines per file for max adherence
+- **Fact-first ratio**: ~70% facts, ~30% instructions in always-on context
+- **Auto-compact trigger**: ~83.5% of context window
+- **"Lost in the middle"**: critical info at start or end, never buried
+- **Hook compliance**: 100% deterministic. Rule compliance: ~70%. Prefer hooks for critical behaviors
+- **Always-on > retrieval**: 100% vs 79% pass rate for critical knowledge
+- **Subagent isolation**: fresh 200K window, only final output returns
+- **Skill injection**: only description in context until invoked
+- **Code examples > rules**: 5x improvement when AI can pattern-match
+
+### Anti-patterns
+
+| Anti-pattern | Why it's bad | Do instead |
+|---|---|---|
+| @importing 200+ line docs | Eats budget every session | 5-8 line summary + pointer |
+| Duplicate sources of truth | Conflicting state | One canonical location per info type |
+| Prose describing code | Drifts immediately | Pointer to file + 3-5 word annotation |
+| All instructions, no facts | Knows behavior not domain | Fact-first: domain knowledge before rules |
+| Putting everything in CLAUDE.md | Exceeds 200-line target | Split: CLAUDE.md (stable) / STATE.md (dynamic) / docs (domain) |
+| Saving code patterns to memory | Stale fast | Only save non-obvious decisions and rationale |
+| Rules instead of examples | Ambiguous | Canonical patterns with file pointers |

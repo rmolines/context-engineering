@@ -10,8 +10,8 @@ effort: low
 # /fund — VC Portfolio management
 
 > Templates: `templates/vc/fund-thesis.md`
+> Lifecycle reference: `templates/vc/vc-lifecycle.md`
 > Fund state: `.claude/state/fund/`
-> Architecture reference: VC-Founder Architecture
 
 **Input:** `$ARGUMENTS`
 
@@ -33,42 +33,49 @@ effort: low
 find .claude/state/fund/bets -name "mandate.md" | xargs ...
 # Read all status.md files
 find .claude/state/fund/bets -name "status.md" | xargs ...
+# Read current cycle-plan for each bet
+find .claude/state/fund/bets -name "cycle-*.md" | xargs ...
 ```
 
 For each bet, extract from mandate.md metadata:
-- startup name, repo, bet_issue, initial_runway, metrics
-- created date
+- startup name, repo, bet_issue, initial_runway, metrics, current_cycle
 
 For each bet, extract from status.md (if exists):
 - last board meeting date and recommendation
 - current runway remaining
 - current metric values
 
+For each bet, extract from current cycle-plan:
+- cycle number, objective, KR statuses
+- confidence level (from latest retro or run report)
+
 If GITHUB_MODE=true: cross-check with GitHub Issue labels (bet:active / bet:paused / bet:killed / bet:exited)
 
 ### Step 2 — Present dashboard
 
 ```
-💼 VC Portfolio — {fund_name}
+VC Portfolio — {fund_name}
 
 Active bets ({N}):
 
-  📈 {startup_name} (#{issue})
+  {startup_name} (#{issue})
      Repo: {repo}
+     Cycle: #{cycle_number} — {objective}
+     KRs: {on_track}/{total} on track | Confidence: {HIGH/MEDIUM/LOW}
      Runway: {remaining}/{initial} runs
      Last board: {date} → {CONTINUE/BRIDGE/...}
-     Metrics: {metric_1}={value} ({↑/→/↓})
 
-  ⚠️  {startup_name} (#{issue})
+  {startup_name} (#{issue})
      [PAUSED — runway exhausted, awaiting renewal]
 
-  💀 {startup_name} (#{issue})
+  {startup_name} (#{issue})
      [KILLED — {date} — {one_line_reason}]
 
 Completed ({N}):
-  ✅ {startup_name} — exited {date}
+  {startup_name} — exited {date}
 
 Portfolio health: {N} active, {N} at risk, {N} killed
+KR summary: {total_on_track}/{total_krs} on track across portfolio
 
 Next board meetings:
   - {startup_name}: in {N} runs (est. {date})
@@ -115,12 +122,17 @@ For each bet (from mandate.md metadata + Run Report comments):
 
 **ROI projection:**
 - Qualitative: on track / at risk / off track
-- Based on last board meeting recommendation
+- Based on last board meeting recommendation + KR trajectory
+
+**Cycle efficiency:**
+- KRs achieved per cycle
+- Average cycle duration (runs)
+- Pivot rate (cycles pivoted / total cycles)
 
 ### Present analytics
 
 ```
-📊 Portfolio Analytics
+Portfolio Analytics
 
 Total investment (estimated):
   {startup_a}: {N} runs × ${cost}/run = ${total}
@@ -132,6 +144,10 @@ Velocity:
   {startup_a}: {commits}/run, {prs}/10 runs
   {startup_b}: {commits}/run, {prs}/10 runs
 
+Cycle efficiency:
+  {startup_a}: cycle #{N}, {krs_achieved}/{total_krs} KRs achieved
+  {startup_b}: cycle #{N}, {krs_achieved}/{total_krs} KRs achieved
+
 Portfolio health:
   On track: {N} bets ({%})
   At risk: {N} bets ({%})
@@ -142,12 +158,13 @@ Portfolio health:
 
 ## Mode: BET DETAIL (`#N`)
 
-Read mandate.md + status.md for the specific bet. Read last 5 Run Reports from GitHub.
+Read mandate.md + strategy.md + current cycle-plan + status.md + latest retro for the specific bet. Read last 5 Run Reports from GitHub.
 
 Present:
-- Full mandate summary
+- Strategy summary (hypothesis, north star, where/how to play)
+- Current cycle objective + KR progress
+- Confidence trend (from retros)
 - Timeline of last 5 runs
-- Current metrics vs targets
 - Last board meeting recommendation
 - Next recommended action
 
@@ -156,6 +173,7 @@ Present:
 ## Rules
 
 - **Always read status.md first.** It's the cached summary — avoids re-reading all Issue comments.
-- **Dashboard is read-only.** /fund doesn't modify bets — that's /invest and /board.
-- **If .claude/state/fund/ doesn't exist:** display "No fund initialized. Run /invest to create your first bet."
+- **Dashboard includes cycle info.** Show cycle number, KR progress, and confidence for each bet.
+- **Dashboard is read-only.** /fund doesn't modify bets — that's /spawn and /board.
+- **If .claude/state/fund/ doesn't exist:** display "No fund initialized. Run /spawn to create your first bet."
 - **Haiku stays inline.** No subagents for simple reads — this skill is fast and lightweight.

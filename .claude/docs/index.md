@@ -14,12 +14,6 @@ Type: **Meta-project** (framework for Claude Code sessions, not a shipping app).
 - [delivery](../../skills/delivery/SKILL.md) — Downstream: Issue → researched, decomposed, implemented, validated, PRd. Claude solo.
 - [persist](../../skills/persist/SKILL.md) — End-of-session: save execution log, update signals, commit. Manual or hooked.
 
-**VC Skills** — autonomous portfolio management
-
-- [invest](../../skills/invest/SKILL.md) — Spawn autonomous founder: due diligence → mandate → Cloud Scheduled Task.
-- [board](../../skills/board/SKILL.md) — Board meeting: read Run Reports → evaluate drift → recommend continue/pivot/bridge/kill.
-- [fund](../../skills/fund/SKILL.md) — Portfolio dashboard: active bets, thesis, analytics.
-
 **Supplemental Skills** — support & orchestration
 
 - [plan](../../skills/plan/SKILL.md) — Decompose task into deliverables. Works with `/run` for execution.
@@ -70,11 +64,6 @@ Type: **Meta-project** (framework for Claude Code sessions, not a shipping app).
 - `templates/state/milestone.md` — Template for campaign milestone.md files.
 - `templates/state/issue/` — Templates for discovery.md, plan.md, execution-log.md.
 - `templates/ci/` — GitHub Actions CI templates (lang-agnostic).
-- `templates/skill-scaffold/` — Starter SKILL.md with all sections.
-- `templates/vc/fund-thesis.md` — VC fund thesis template.
-- `templates/vc/founder-mandate.md` — Autonomous founder prompt template (Cloud Scheduled Task).
-- `templates/vc/board-report.md` — Board meeting evaluation format.
-- `templates/vc/bet-card.md` — Portfolio bet GitHub Issue template.
 
 **Research & Docs**
 - [`research/llm-knowledge-base-pattern.md`](../../research/llm-knowledge-base-pattern.md) — Search + context synthesis pattern for long-term project memory.
@@ -138,25 +127,10 @@ PR created, CI runs, auto-merges on pass
 
 ---
 
-## Project State (as of 2026-04-04)
+## Project State
 
-**Active Campaigns**
-- [C1] Dogfooding completo do sistema — #5 tracker. Using CE in context-engineering itself. 3+ sessions planned.
-- [C3] Validação em projeto real — Testing CE on external projects (Pantheon OS first test). 5+ sessions planned.
-
-**Backlog**
-- #4 Context Linting — Health checks on context layer.
-
-**Completed**
-- [C0] Nível operacional — Delivered 2026-03-31. 6/6 deliverables (skills, hooks, rules, templates).
-- [C2] Campaign awareness nos skills — Delivered 2026-03-31. 5/6 skills with campaign-linking.
-
-**Recent Discoveries**
-- GitHub Issues/Milestones v1+v2 complete (PR #3, #7). STATE.md now cache, not source.
-- Projects V2 board with custom fields live. Auto-labeling, stale detection implemented.
-- Gotcha: `gh project link` + date fields needed for Roadmap view — fixed.
-- Sandbox PATH issue: gh not in /opt/homebrew/bin within Claude Code — use absolute path or `command -v gh`.
+Loaded dynamically by `/bootstrap` — see `.claude/state/STATE.md`.
 
 ---
 
-Last updated: 2026-04-04 by `/bootstrap`.
+Last updated: 2026-04-05.

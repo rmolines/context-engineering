@@ -1,7 +1,7 @@
 ---
 name: run
 description: "Executa planos criados pelo /plan. Roda deliverables/steps respeitando deps e batches, paraleliza via subagentes quando possível. Sub-comandos: '/run' próximo batch, '/run D3' deliverable específico, '/run --all' tudo que tiver pronto."
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch, TaskCreate, TaskUpdate, TaskList
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch, TodoWrite
 argument-hint: "[DN | --all]"
 ---
 

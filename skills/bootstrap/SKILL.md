@@ -52,7 +52,7 @@ For each Milestone (active + completed):
 ```
 .claude/state/milestones/{slug}/milestone.md
 ```
-Using template `templates/state/milestones/milestone.md`.
+Using template `templates/state/milestone.md`.
 Populate with intent, success state, and signals from campaigns.md.
 
 For each existing Issue on GitHub with a Milestone:

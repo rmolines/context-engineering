@@ -13,7 +13,7 @@ Install it and you get slash commands that form a complete session protocol:
 | Command | What it does |
 |---------|-------------|
 | `/bootstrap` | Scans your project, generates a domain map of APIs/auth/data, sets up state tracking. Idempotent — safe to run anytime. |
-| `/discover` | Researches a topic before you act — codebase internals, external docs, or both. Parallelizes via subagents. |
+| `/discovery` | Upstream: transforms a rough request into a spec'd GitHub Issue. Human + Claude collaboration. |
 | `/plan` | Decomposes a task into deliverables with dependencies, batches, and git strategy. Three granularity levels. |
 | `/run` | Executes plans respecting dependency order. Parallelizes independent work via worktrees. Handles git, PRs, CI. |
 | `/persist` | Saves session state to disk — progress, decisions, learnings. Detects domain drift. Generates continuation prompts. |
@@ -48,9 +48,8 @@ This scans your project and creates:
 From here, the typical flow is:
 
 ```
-/discover  →  research before acting (optional)
-/plan      →  decompose task into deliverables
-/run       →  execute the plan
+/discovery →  research + spec a request into a GitHub Issue
+/delivery  →  implement a spec'd Issue → PR with validation
 /persist   →  save state for next session
 ```
 
@@ -113,7 +112,7 @@ Session Start
 │                                                 │
 │  .claude/state/*.md       Workstream history    │
 │                                                 │
-│  .claude/discoveries/     Prior research        │
+│  research/                Foundational research  │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -123,11 +122,12 @@ Session Start
 
 ```
 context-engineering/
-├── skills/                  # 6 slash commands
+├── skills/                  # 7 slash commands (4 core + 3 supplemental)
 │   ├── bootstrap/           #   project initialization + state loading
-│   ├── discover/            #   context research (internal + external)
-│   ├── plan/                #   structured planning with deps + batches
-│   ├── run/                 #   plan execution with parallelism
+│   ├── discovery/           #   upstream: request → spec'd GitHub Issue
+│   ├── delivery/            #   downstream: Issue → PR with validation
+│   ├── plan/                #   (deprecated) structured planning
+│   ├── run/                 #   (deprecated) plan execution
 │   ├── persist/             #   session state persistence
 │   └── distill/             #   workflow crystallization
 │

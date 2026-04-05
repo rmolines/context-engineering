@@ -64,7 +64,7 @@ When Claude creates a new API route, it reads the canonical example first and re
 | Strategy | What it means | Our mechanism |
 |----------|--------------|---------------|
 | **Write** | Persist state outside the window | STATE.md, workstream files, plan files, domain map |
-| **Select** | Retrieve only what's relevant | Progressive disclosure, /discover, hook auto-injection |
+| **Select** | Retrieve only what's relevant | Progressive disclosure, /discovery, hook auto-injection |
 | **Compress** | Summarize to save tokens | Pointers > prose, inline summaries, subagent isolation |
 | **Isolate** | Separate concerns across agents | Subagents with fresh windows, worktree isolation |
 
@@ -126,7 +126,7 @@ Available but loaded on demand. If Claude would only err on **detail** without i
 | Initiative details | `initiatives.md` | Working on a specific initiative |
 | Execution plans | `plan-*.md` | `/run` executing a plan |
 | Workstream history | `workstream.md` in state/ | Resuming specific work |
-| Research/discoveries | `.claude/discoveries/` | Needing prior research |
+| Research/discoveries | `research/` | Needing prior research |
 | Detailed standards | `.claude/standards/` | Editing specific file types |
 
 **The connecting mechanism is the pointer.** Always-on context contains short summaries + links to detail files. Claude sees the map, reads the detail when acting.
@@ -259,7 +259,7 @@ SessionStart (hook) → auto-inject STATE.md
   ↓
 /bootstrap → load state + backbrief (campaign alignment)
   ↓
-/discover → research before acting (optional)
+/discovery → research + spec request into Issue (optional)
   ↓
 /plan → decompose into deliverables (links to campaign)
   ↓

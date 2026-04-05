@@ -186,7 +186,7 @@ Crie o arquivo em `.claude/state/plan-<slug>.md`. O formato se adapta ao nível:
 - Se batches são sequenciais: cada PR rebasa sobre main após o anterior mergear
 - Mapear domínios de arquivo quando há agentes paralelos no mesmo batch (evita conflitos)
 - **Worktrees:** deliverables paralelos num batch usam `isolation: "worktree"` no /run — cada subagente trabalha em cópia isolada do repo. O /plan não precisa configurar worktrees, apenas garantir que domínios de arquivo estejam claros pra minimizar conflitos no merge.
-- Se o projeto não tem CI configurado: sugerir `/bootstrap init` antes de executar com PRs
+- Se o projeto não tem CI configurado: sugerir `/bootstrap` antes de executar com PRs
 
 ### 3.5. GitHub Issues (se GITHUB_MODE=true)
 
@@ -251,26 +251,26 @@ gh label create "campaign:<slug>" --color "D4C5F9" --description "Campaign: <slu
 
 #### Adicionar ao Projects V2 (se PROJECTS_MODE=true)
 
-Se `.claude/state/.github-project-cache.json` existe:
+Se `.claude/state/project-cache.json` existe:
 
 Para cada issue criada:
 ```bash
 # Ler cache
-PROJECT_NUMBER=$(jq -r '.projectNumber' .claude/state/.github-project-cache.json)
-PROJECT_ID=$(jq -r '.projectId' .claude/state/.github-project-cache.json)
-OWNER=$(jq -r '.owner' .claude/state/.github-project-cache.json)
+PROJECT_NUMBER=$(jq -r '.projectNumber' .claude/state/project-cache.json)
+PROJECT_ID=$(jq -r '.projectId' .claude/state/project-cache.json)
+OWNER=$(jq -r '.owner' .claude/state/project-cache.json)
 
 # Adicionar ao board
 ITEM_ID=$(gh project item-add $PROJECT_NUMBER --owner $OWNER --url {issue_url} --format json | jq -r '.id')
 
 # Setar Campaign
-CAMPAIGN_FIELD=$(jq -r '.fields.Campaign.id' .claude/state/.github-project-cache.json)
-CAMPAIGN_OPT=$(jq -r '.fields.Campaign.options["[CN]"]' .claude/state/.github-project-cache.json)
+CAMPAIGN_FIELD=$(jq -r '.fields.Campaign.id' .claude/state/project-cache.json)
+CAMPAIGN_OPT=$(jq -r '.fields.Campaign.options["[CN]"]' .claude/state/project-cache.json)
 gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID --field-id $CAMPAIGN_FIELD --single-select-option-id $CAMPAIGN_OPT
 
 # Setar Size
-SIZE_FIELD=$(jq -r '.fields.Size.id' .claude/state/.github-project-cache.json)
-SIZE_OPT=$(jq -r ".fields.Size.options[\"$SIZE\"]" .claude/state/.github-project-cache.json)
+SIZE_FIELD=$(jq -r '.fields.Size.id' .claude/state/project-cache.json)
+SIZE_OPT=$(jq -r ".fields.Size.options[\"$SIZE\"]" .claude/state/project-cache.json)
 gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID --field-id $SIZE_FIELD --single-select-option-id $SIZE_OPT
 ```
 

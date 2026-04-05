@@ -49,7 +49,7 @@ Aligned with GitHub's official terminology:
 
 These live on disk as the agent's operational memory and historical archive.
 
-## Four skills
+## Core skills
 
 Two for **context management** (cross-session memory), two for **work** (upstream + downstream):
 

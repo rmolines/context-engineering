@@ -79,7 +79,7 @@ Se modo git != `direct-commit`:
 ```bash
 gh issue edit N --add-label "status:in-progress" --remove-label "status:ready"
 ```
-Se `.claude/state/.github-project-cache.json` existe (Projects V2 ativo): atualizar Status no board:
+Se `.claude/state/project-cache.json` existe (Projects V2 ativo): atualizar Status no board:
 ```bash
 # Ler cache pra obter IDs
 ITEM_ID=$(gh project item-list {number} --owner {owner} --format json | jq -r '.items[] | select(.content.number == N) | .id')

@@ -75,7 +75,7 @@ The system operates at three levels inspired by NATO doctrine. Each level has di
 | NATO Level | CE Level | Artifact | Cadence (write) | Cadence (read) | Alignment mechanism |
 |---|---|---|---|---|---|
 | Strategic | Commander's Intent | CLAUDE.md `## Commander's Intent` | Rare (milestone/pivot) | Always-on (every session) | /bootstrap suggests review |
-| Operational | Campaigns | `.claude/state/campaigns.md` | Per session (signals) | /bootstrap + /persist | Backbrief (bootstrap) + SITREP (persist) |
+| Operational | Milestones | `.claude/state/milestones/*/milestone.md` | Per session (signals) | /bootstrap + /persist | Backbrief (bootstrap) + SITREP (persist) |
 | Tactical | Plans & Sessions | `.claude/state/plan-*.md` | Per session (execution) | /run + /bootstrap | Checkpoint after each batch |
 | (Meta) | Doctrine | `CONTEXT-PHILOSOPHY.md` | Rare (system evolves) | On-demand | /distill (lessons learned → doctrine) |
 
@@ -109,7 +109,7 @@ Auto-loaded at session start. Informs **every** decision. If Claude would err on
 | Canonical patterns | CLAUDE.md root (5-8 lines) | Pointers to reference implementations | fact |
 | Conventions | App CLAUDE.md (~50 lines) | Stack, commands, design system | mixed |
 | Current state | STATE.md (via SessionStart hook) | Initiatives, active workstreams, backlog | fact |
-| Campaign pointer | STATE.md or campaigns.md (1-2 lines) | Active campaigns summary | fact |
+| Milestone pointer | STATE.md (1-2 lines per milestone) | Active milestones summary | fact |
 | Process guardrails | Rules (~30 lines total) | How to operate | instruction |
 | User profile | Memory (MEMORY.md index) | Preferences, operating model | fact |
 
@@ -236,7 +236,7 @@ The SessionStart hook injects STATE.md. This is what Claude sees first. Structur
 | Architecture decisions | CLAUDE.md or dedicated doc | Decided once, lasts months |
 | Initiatives/roadmap | STATE.md `## Initiatives` table + initiatives.md | Changes weekly |
 | Active execution | STATE.md `## Active` + plan files | Changes per session |
-| Campaign intent & signals | `.claude/state/campaigns.md` | Per session (signals via /persist) |
+| Milestone intent & signals | `.claude/state/milestones/*/milestone.md` | Per session (signals via /persist) |
 | Organic ideas, todos | STATE.md `## Backlog` | Grows organically |
 | Dated decisions | BACKLOG.md (if hub pattern) | Append-only log |
 | Cross-session learnings | Memory system | When non-obvious patterns emerge |

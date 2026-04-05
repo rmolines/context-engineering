@@ -8,7 +8,7 @@
   Format: [semantic name](relative/path/to/file) — 3-5 word annotation
 
   Sections below are common; add/remove as needed for your project.
-  Generated initially by /bootstrap init, maintained by /persist drift detection.
+  Generated initially by /bootstrap, maintained by /persist drift detection.
 -->
 
 ## API Surface

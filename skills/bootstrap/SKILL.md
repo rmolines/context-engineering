@@ -52,7 +52,7 @@ For each Milestone (active + completed):
 ```
 .claude/state/milestones/{slug}/milestone.md
 ```
-Using template `templates/state/milestone.md`.
+Using template `templates/state/milestones/milestone.md`.
 Populate with intent, success state, and signals from campaigns.md.
 
 For each existing Issue on GitHub with a Milestone:
@@ -149,10 +149,14 @@ Present to user for review before saving.
 - **If not and GITHUB_MODE=false:** create empty `.claude/state/milestones/`
 
 ### CI (only if: no CI + has package.json + has GitHub remote)
+**Ask user before creating.** CI setup is a side effect — don't surprise.
+> "Project has no CI configured. Set up GitHub Actions (lint + test + build)?"
+If yes:
 1. Detect stack (package manager, Node version, available scripts)
 2. Generate `.github/workflows/ci.yml` from `templates/ci/`
 3. Ensure `ai-generated` label exists on GitHub
 4. Inform user
+If no: skip.
 
 ## 2.5. GitHub sync
 

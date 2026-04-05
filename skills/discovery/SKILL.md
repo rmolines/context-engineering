@@ -3,6 +3,8 @@ name: discovery
 description: "Upstream: transforma pedido cru em Issue especificada no GitHub. Colaborativo (humano + Claude). Fases: entender intent (PM), propor experiência (Designer), validar com humano, spec técnica (Tech Lead), criar Issue. Pesquisa interna (codebase) e externa (web/docs). Triggers: '/discovery', 'quero X', 'preciso de', 'faz um discovery', 'vamos especificar', 'define isso', 'cria issue pra'."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch
 argument-hint: "[pedido | #issue-number]"
+model: sonnet
+effort: medium
 ---
 
 # /discovery — Upstream: problem → spec
@@ -79,14 +81,14 @@ Each subagent returns a **concise synthesis**, not a data dump.
 Based on intent (step 1) + research (step 2), propose:
 
 1. **User flow** — what the end user sees/does, step by step
-   - Not wireframes — describe in words: "User clicks X, sees Y, enters Z"
-   - Include the happy path AND the main alternative paths
+   - For UI features: "User clicks X, sees Y, enters Z" — happy path + alternative paths
+   - For CLI/infra/backend: "User runs X, system does Y, output is Z" — happy path + error paths
+   - For skills/plugins: "User invokes /X, skill does Y, output is Z" — modes + flags
 
-2. **States** — every screen/component has states:
-   - Loading (what does the user see while waiting?)
-   - Empty (first time, no data yet)
-   - Error (what fails? how does the user recover?)
-   - Success (the happy path result)
+2. **States** (adapt to task type):
+   - UI: Loading, Empty, Error, Success states for each screen/component
+   - CLI/API: Input validation, Processing, Error output, Success output
+   - Infra: Preconditions, Execution, Failure modes, Rollback
 
 3. **Edge cases** — things that aren't obvious:
    - Concurrent users, race conditions

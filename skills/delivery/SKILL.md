@@ -5,7 +5,6 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebS
 argument-hint: "#issue-number"
 model: sonnet
 effort: high
-context: fork
 ---
 
 # /delivery — Downstream execution
@@ -13,7 +12,7 @@ context: fork
 **Input:** `$ARGUMENTS` — must be a GitHub Issue number (e.g., `#10`)
 
 > Architecture reference: `ARCHITECTURE.md` § "Delivery — downstream"
-> This skill runs in `context: fork` — isolated from the main conversation.
+> This skill runs inline — needs to spawn subagents for research, implementation, and validation.
 
 ## Step 1 — Read Issue
 

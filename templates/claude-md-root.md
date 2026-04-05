@@ -35,6 +35,6 @@
 <!-- How to work with the context system in this project. -->
 - State lives in `.claude/state/STATE.md` (auto-injected every session)
 - Before working on an initiative, read its detail file in `.claude/state/`
-- Campaigns (operational level) in `.claude/state/campaigns.md` — reviewed periodically via /bootstrap backbrief
+- Milestones tracked in `.claude/state/milestones/` — synced via /bootstrap
 - Decisions go into `BACKLOG.md` (dated, append-only)
 - Before ending a task, run `/persist`

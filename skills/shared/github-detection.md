@@ -47,7 +47,7 @@ gh auth status 2>&1 | grep -q "project"
 
 ### Cache de IDs do Project
 
-Se `PROJECTS_MODE=true`, verificar se `.claude/state/.github-project-cache.json` existe:
+Se `PROJECTS_MODE=true`, verificar se `.claude/state/project-cache.json` existe:
 - Se existe → ler e usar os IDs cacheados (project ID, field IDs, option IDs)
 - Se não existe → o /bootstrap cria na próxima execução
 

@@ -1,11 +1,15 @@
 ---
 name: distill
 description: "Cristaliza um fluxo da sessão atual em skill nova ou atualização de skill existente. Analisa o que foi feito, extrai o padrão repetível, identifica anti-patterns aprendidos, e formaliza tudo. Usar quando um fluxo manual deu certo e vale ser reutilizável. Triggers: 'distill', 'cristaliza isso', 'formaliza esse fluxo', 'transforma em skill', 'quero reusar isso', 'salva esse workflow'."
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
+argument-hint: "[descrição do fluxo]"
+model: sonnet
+effort: medium
 ---
 
-> ℹ️ **Note:** This skill remains independent in the Architecture v2 model.
-> It's a utility for crystallizing session workflows into reusable skills.
-> See `ARCHITECTURE.md` for the overall system design.
+> Skill suplementar independente na Architecture v2.
+> Utilitário para cristalizar workflows de sessão em skills reutilizáveis.
+> Ver `ARCHITECTURE.md` para o design geral do sistema.
 
 # Distill
 
@@ -65,7 +69,7 @@ Esperar aprovação antes de prosseguir.
 Dependendo da proposta aprovada:
 
 **Se criar skill nova:**
-1. Definir scope da skill (global `~/.claude/skills/` ou projeto `.claude/skills/`)
+1. Definir scope da skill (projeto `.claude/commands/` ou plugin scope)
 2. Escrever `SKILL.md` com frontmatter completo
 3. Incluir seções: Filosofia, Fluxo (com fases), Anti-patterns, Arquivos de referência
 4. A description do frontmatter deve incluir triggers naturais em PT-BR e EN

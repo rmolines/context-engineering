@@ -1,7 +1,7 @@
 {
   "name": "ce",
   "version": "2.2.0",
-  "description": "Context Engineering — session protocol that gives every AI session the right context at the right time. 5 core skills: bootstrap (context in), discovery (upstream spec), delivery (downstream build), persist (context out), distill (skill creation).",
+  "description": "Context Engineering — context management layer for Claude Code. 6 skills: init (setup), bootstrap (session), discovery (upstream), delivery (downstream), persist (save), distill (meta).",
   "author": {
     "name": "rmolines"
   },

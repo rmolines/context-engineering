@@ -1,7 +1,7 @@
 ---
 name: run
 description: "Executa planos criados pelo /plan. Roda deliverables/steps respeitando deps e batches, paraleliza via subagentes quando possível. Sub-comandos: '/run' próximo batch, '/run D3' deliverable específico, '/run --all' tudo que tiver pronto."
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch, TaskCreate, TaskUpdate, TaskList
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch, TodoWrite
 argument-hint: "[DN | --all]"
 ---
 
@@ -79,7 +79,7 @@ Se modo git != `direct-commit`:
 ```bash
 gh issue edit N --add-label "status:in-progress" --remove-label "status:ready"
 ```
-Se `.claude/state/.github-project-cache.json` existe (Projects V2 ativo): atualizar Status no board:
+Se `.claude/state/project-cache.json` existe (Projects V2 ativo): atualizar Status no board:
 ```bash
 # Ler cache pra obter IDs
 ITEM_ID=$(gh project item-list {number} --owner {owner} --format json | jq -r '.items[] | select(.content.number == N) | .id')

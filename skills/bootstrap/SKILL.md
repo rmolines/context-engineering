@@ -1,22 +1,23 @@
 ---
 name: bootstrap
-description: "Carregar estado do projeto, inicializar o que falta, alinhar sessão. Idempotente — sempre seguro de rodar. Detecta automaticamente se precisa inicializar ou recarregar. Usar: '/bootstrap' em qualquer projeto, a qualquer momento. '/bootstrap migrate-to-github' migra estado local para GitHub Issues/Milestones."
+description: "Carregar contexto da sessão. Query live ao GitHub, deep context loading, briefing, alinhamento. Rodar no início de cada sessão. '/bootstrap' carrega e alinha. '/bootstrap migrate-to-github' migra estado local para GitHub Issues/Milestones."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
 argument-hint: "[migrate-to-github]"
 model: haiku
 effort: low
 ---
 
-# /bootstrap — Context in
+# /bootstrap — Session context in
 
 > Architecture reference: `ARCHITECTURE.md` § "Bootstrap — context in"
 > This skill is idempotent — always safe to run.
+> For project setup (dirs, domain map, GitHub labels, CI), use `/init` instead.
 
 **Input:** `$ARGUMENTS`
 
 | Input | Mode |
 |---|---|
-| empty | DEFAULT — detect, initialize, load, align |
+| empty | DEFAULT — load context, briefing, align |
 | `migrate-to-github` | MIGRATE — migrate local state to GitHub Issues/Milestones |
 
 ---
@@ -75,201 +76,29 @@ Run the STATE.md rebuild from DEFAULT mode step 2.5. Report what was migrated.
 
 ## Mode DEFAULT
 
-Idempotent. Detects what exists, initializes what's missing, reloads state.
+Loads session context. Does NOT initialize — for setup, use `/init`.
 
-## 1. Detect state
+## 1. Detect
 
 ```
-STATE.md         = .claude/state/STATE.md exists?
-MILESTONES_DIR   = .claude/state/milestones/ exists?
-DOMAIN_MAP       = .claude/docs/index.md exists?
-CI               = .github/workflows/ci.yml exists?
-HAS_PACKAGE_JSON = package.json exists?
-HAS_REMOTE       = git remote get-url origin (success?)
+CE_INITIALIZED = .claude/state/ exists?
+HAS_REMOTE     = git remote get-url origin (success?)
+GH_AUTH        = gh auth status (success?)
 ```
 
-## 2. Ensure structure (idempotent)
+If NOT CE_INITIALIZED:
+> "CE not set up in this project. Run `/init` first."
+> Abort.
 
-### STATE.md
-- **If exists:** read and proceed to step 2.5
-- **If not:** create `.claude/state/STATE.md`:
+Reference: `skills/shared/github-detection.md` — run GitHub detection.
 
-```markdown
-# Project State
+## 2. Live sync
 
-## Active
+**Run only if** GITHUB_MODE=true. If any check fails: skip silently and proceed with local flow (step 3).
 
-## Backlog
+### STATE.md — live query
 
-## Completed
-```
-
-### Initial discovery (only if STATE.md was just created)
-- Read `README.md`, `CLAUDE.md`, `package.json`, `Cargo.toml`, `pyproject.toml` or equivalent
-- Run `git log --oneline -20` for recent activity
-- Run `git branch -a` for active branches
-- List first-level directories for project structure
-
-### Domain map
-- **If exists:** skip (drift detection is in /persist)
-- **If not:** generate `.claude/docs/index.md` with project scan:
-
-**API Surface:**
-- Search for routes in `src/app/api/`, `app/api/`, `pages/api/`, `routes/`, or framework equivalent
-- For each route: path, HTTP methods, auth type
-- Format: `- [semantic name](relative/path) — method(s), auth type`
-
-**Server Actions:**
-- Search for files with `'use server'`
-- List each exported action with path and purpose
-
-**Auth:**
-- Look for: `auth.ts`, `session.ts`, `middleware.ts`, `proxy.ts`, `api-auth.ts`
-- Identify mechanism(s): JWT, session cookie, API key, OAuth
-- Point to implementation file(s)
-
-**Data Model:**
-- Look for: `prisma/schema.prisma`, `drizzle/`, `db-*.ts`, `models/`, `schema.ts`, `migrations/`
-- Point to schema/query files
-
-**Canonical Patterns:**
-- Best example of each type: API route, page/component, server action
-- List as canonical reference
-
-**Environment Variables:**
-- Read `.env.example`, `.env.template` or extract from `process.env.` usage
-- List each var with purpose (not value)
-
-Omit sections the project doesn't have. Use subagents to parallelize if large.
-Present to user for review before saving.
-
-### Milestones directory
-- **If exists:** skip
-- **If not and GITHUB_MODE=true:** create from GitHub Milestones (step 2.5 handles)
-- **If not and GITHUB_MODE=false:** create empty `.claude/state/milestones/`
-
-### CI (only if: no CI + has package.json + has GitHub remote)
-1. Detect stack (package manager, Node version, available scripts)
-2. Generate `.github/workflows/ci.yml` from `templates/ci/`
-3. Ensure `ai-generated` label exists on GitHub
-4. Inform user
-
-## 2.5. GitHub sync
-
-**Run only if** project has GitHub remote AND `gh auth status` succeeds. If any check fails: skip silently and proceed with local flow (steps 3+).
-
-Reference: `skills/shared/github-detection.md` — run detection.
-
-### Labels (idempotent)
-
-```bash
-gh label create "priority:urgent" --color "B60205" --description "Urgente" || true
-gh label create "priority:high" --color "D93F0B" --description "Alta" || true
-gh label create "priority:normal" --color "0E8A16" --description "Normal" || true
-gh label create "priority:low" --color "C2E0C6" --description "Baixa" || true
-gh label create "size:S" --color "C2E0C6" --description "Pequeno" || true
-gh label create "size:M" --color "FEF2C0" --description "Médio" || true
-gh label create "size:L" --color "F9D0C4" --description "Grande" || true
-gh label create "ai-generated" --color "1D76DB" --description "PR criado por agente AI" || true
-```
-
-### Milestones (idempotent)
-
-Read `.claude/state/milestones/` for existing milestone docs:
-1. For each milestone doc, check if GitHub Milestone exists
-2. If not: create via `gh api repos/{owner}/{repo}/milestones --method POST`
-3. Ensure `[Backlog]` Milestone exists
-
-### Projects V2 (if PROJECTS_MODE=true)
-
-Reference: `skills/shared/github-detection.md` — section "Projects V2".
-
-If `PROJECTS_MODE=false`: skip silently.
-
-#### Create/find Project (idempotent)
-
-```bash
-EXISTING=$(gh project list --owner {owner} --format json | jq -r '.projects[] | select(.title == "CE: {repo-name}") | .number')
-if [ -z "$EXISTING" ]; then
-  PROJECT_NUMBER=$(gh project create --owner {owner} --title "CE: {repo-name}" --format json | jq -r '.number')
-else
-  PROJECT_NUMBER=$EXISTING
-fi
-```
-
-#### Link to repository
-
-```bash
-gh project link $PROJECT_NUMBER --owner {owner} --repo {owner}/{repo}
-```
-
-#### Create custom fields (idempotent)
-
-```bash
-EXISTING_FIELDS=$(gh project field-list $PROJECT_NUMBER --owner {owner} --format json | jq -r '.fields[].name')
-
-# Priority
-echo "$EXISTING_FIELDS" | grep -q "Priority" || \
-  gh project field-create $PROJECT_NUMBER --owner {owner} \
-    --name "Priority" --data-type SINGLE_SELECT \
-    --single-select-options "Urgent,High,Normal,Low"
-
-# Size
-echo "$EXISTING_FIELDS" | grep -q "Size" || \
-  gh project field-create $PROJECT_NUMBER --owner {owner} \
-    --name "Size" --data-type SINGLE_SELECT \
-    --single-select-options "S,M,L"
-
-# Start Date (for Roadmap view)
-echo "$EXISTING_FIELDS" | grep -q "Start Date" || \
-  gh project field-create $PROJECT_NUMBER --owner {owner} \
-    --name "Start Date" --data-type DATE
-
-# Target Date (for Roadmap view)
-echo "$EXISTING_FIELDS" | grep -q "Target Date" || \
-  gh project field-create $PROJECT_NUMBER --owner {owner} \
-    --name "Target Date" --data-type DATE
-```
-
-Note: Status field is created by default (Todo, In Progress, Done).
-Milestone is a native GitHub field — no custom field needed.
-
-#### Cache field IDs
-
-Query GraphQL and save to `.claude/state/project-cache.json`:
-
-```bash
-gh api graphql -f query='query($login: String!, $number: Int!) {
-  user(login: $login) { projectV2(number: $number) { id fields(first: 20) { nodes {
-    ... on ProjectV2SingleSelectField { id name options { id name } }
-    ... on ProjectV2Field { id name }
-  }}}}
-}' -F login="{owner}" -F number=$PROJECT_NUMBER
-```
-
-If cache exists and `projectNumber` matches: verify fields haven't changed. If changed, regenerate.
-
-#### Add Issues to board
-
-For each open Issue not yet on the board:
-```bash
-ITEM_ID=$(gh project item-add $PROJECT_NUMBER --owner {owner} --url {issue_url} --format json | jq -r '.id')
-gh project item-edit --id $ITEM_ID --project-id $PROJECT_ID \
-  --field-id $SIZE_FIELD_ID --single-select-option-id $SIZE_OPTION
-```
-
-#### First-time guidance
-
-On first Project creation:
-> "Project V2 created: {url}.
-> Recommend configuring in UI:
-> 1. **Workflows:** Settings → Workflows → 'Item added' → Status = Todo / 'Issue closed' → Status = Done
-> 2. **Roadmap view:** + New view → Layout: Roadmap → Date fields: Start Date / Target Date
-> 3. **Board view:** + New view → Layout: Board → Group by: Status"
-
-### STATE.md — rebuild cache
-
-Regenerate STATE.md from GitHub:
+Regenerate STATE.md from GitHub (always fresh, never read existing as source):
 
 1. Fetch open Issues:
    ```bash
@@ -283,8 +112,8 @@ Regenerate STATE.md from GitHub:
 
 ```markdown
 # Project State
-<!-- Generated from GitHub at YYYY-MM-DDTHH:MM:SSZ — do not edit manually -->
-<!-- Regenerated by /bootstrap. Source of truth: GitHub Issues/Milestones. -->
+<!-- Generated by /bootstrap at YYYY-MM-DDTHH:MM:SSZ — session buffer, not persistent cache -->
+<!-- Source of truth: GitHub Issues/Milestones. Regenerated live each session. -->
 
 ## Active
 - #N título — Milestone: [CN], size:Y

@@ -94,6 +94,8 @@ If the session worked on a specific Issue:
 3. If `execution-log.md` doesn't exist: create from template `templates/state/issue/execution-log.md`
 4. Append session entry:
 
+**Fallback (no Issue tracked):** if no specific Issue was worked on but meaningful work happened, save to `.claude/state/session-log.md` (append, same format). This ensures no session context is lost even without GitHub integration.
+
 ```markdown
 ### YYYY-MM-DD — Session N
 

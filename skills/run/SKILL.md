@@ -1,8 +1,8 @@
 ---
 name: run
-description: "Executa planos criados pelo /plan. Roda deliverables/steps respeitando deps e batches, paraleliza via subagentes quando possível. Sub-comandos: '/run' próximo batch, '/run D3' deliverable específico, '/run --all' tudo que tiver pronto."
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch, TodoWrite
-argument-hint: "[DN | --all]"
+description: "DEPRECATED — absorbed by /delivery. Use /delivery #N instead."
+disable-model-invocation: true
+allowed-tools: Read
 ---
 
 > ⚠️ **DEPRECATED:** This skill has been absorbed by `/delivery` (step 4: implement).

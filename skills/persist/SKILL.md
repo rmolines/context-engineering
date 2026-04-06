@@ -1,6 +1,6 @@
 ---
 name: persist
-description: "Persistir estado da sessão atual pro disco. Usar ao finalizar uma tarefa, antes de /clear, ou ao encerrar sessão. Salva progresso, decisões e contexto para que sessões futuras continuem de onde parou. Auto-invocar quando o usuário disser: 'vou encerrar', 'sessão nova', 'contexto limpo', 'vou fechar', 'até a próxima', 'vamos terminar', 'terminar a sessão', 'terminar o trabalho', 'parar por aqui', 'vou parar'."
+description: "Persistir estado da sessão via GitHub Issue comments. Usar ao finalizar uma tarefa, antes de /clear, ou ao encerrar sessão. Salva progresso, decisões e contexto para que sessões futuras continuem de onde parou. Auto-invocar quando o usuário disser: 'vou encerrar', 'sessão nova', 'contexto limpo', 'vou fechar', 'até a próxima', 'vamos terminar', 'terminar a sessão', 'terminar o trabalho', 'parar por aqui', 'vou parar'."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion
 argument-hint: ""
 model: haiku
@@ -71,13 +71,13 @@ Classify what needs persisting:
 
 | Type | Condition | Action |
 |------|-----------|--------|
-| **Execution log** | Worked on an Issue (discovery or delivery) | Update/create execution-log.md in Issue directory |
+| **Session comment** | Worked on an Issue (discovery or delivery) | Post structured comment to GitHub Issue (GITHUB_MODE=true) or append to `session-log.md` (fallback) |
 | **Milestone signal** | Session advanced a Milestone or revealed something unexpected | Append signal to milestone.md + sync to GitHub |
 | **Memory** | New learning about user, project, or non-obvious feedback | Save/update in `~/.claude/projects/.../memory/` |
 | **Direction** | Product direction decision (thesis, principles, macro architecture) | Suggest to user (don't edit automatically) |
 | **Domain drift** | API, auth, schema, or actions code changed but `.claude/docs/` not updated | Alert and suggest domain map update |
 
-**GitHub mode:** If `GITHUB_MODE=true` (see `skills/shared/github-detection.md`), Milestone signal and Execution log gain GitHub sync (details below).
+**GitHub mode:** If `GITHUB_MODE=true` (see `skills/shared/github-detection.md`), Milestone signal gains GitHub sync and session context is posted as Issue comment (details below).
 
 **Aggressive skip:** if the session was one-off (quick bugfix, question answered, exploration without decisions), say "nothing to persist" and stop. Don't force bureaucracy on sessions that don't need it.
 
@@ -85,52 +85,43 @@ Classify what needs persisting:
 
 For each type marked as relevant in triage:
 
-### Execution log (inline or haiku subagent)
+### Session comment (MANDATORY if worked on Issue)
 
-If the session worked on a specific Issue:
+If the session worked on a specific Issue AND `GITHUB_MODE=true`:
 
-1. Find the Issue directory: `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/`
-2. If directory doesn't exist: create it
-3. If `execution-log.md` doesn't exist: create from template `templates/state/issue/execution-log.md`
-4. Append session entry:
+Post a structured session comment immediately — this is **not opt-in**:
 
-**Fallback (no Issue tracked):** if no specific Issue was worked on but meaningful work happened, save to `.claude/state/session-log.md` (append, same format). This ensures no session context is lost even without GitHub integration.
-
-```markdown
-### YYYY-MM-DD — Session N
+```bash
+gh issue comment $ISSUE_NUMBER --body "$(cat <<'EOF'
+## Session [YYYY-MM-DD]
 
 **What was done:**
 - {action 1}
 - {action 2}
 
-**Problems encountered:**
-- {problem and resolution}
-
-**Decisions made:**
+**Decisions:**
 - {decision and rationale}
+
+**Next session:**
+- {concrete next step}
+
+**Key files:**
+- {relevant paths}
+EOF
+)"
 ```
 
-### Execution log → GitHub Issue comment (if GITHUB_MODE=true)
+Rules for the comment content:
+- The `## Session [` prefix is the contract — `/bootstrap` uses it to filter session comments from human comments. Never change this prefix.
+- "What was done": 5-8 bullets max. Details are in commit history. Summarize outcomes, not steps.
+- "Next session": this is the primary continuation context that next bootstrap will read. Make it specific and actionable.
+- "Decisions": only non-obvious choices that future sessions need to know. Skip if none.
 
-Offer (don't force) to register session context as comment on the relevant Issue:
+**Multiple Issues:** if the session worked on 2+ Issues, post one comment per Issue with only the work done on THAT Issue.
 
-1. Check if the Issue has a number (is on GitHub)
-2. If yes, ask:
-   > "Register session context as comment on Issue #N ({title})?"
-3. If yes:
-   ```bash
-   gh issue comment N --body "$(cat <<'EOF'
-   ## Session update [YYYY-MM-DD]
+**Fallback (GITHUB_MODE=false):** append to `.claude/state/session-log.md` using the same format. This preserves local continuity without GitHub.
 
-   **What was done:** {summary}
-   **Decisions:** {key decisions}
-   **Next session:** {continuation context}
-   **Key files:** {relevant paths}
-   EOF
-   )"
-   ```
-
-If no open Issues were worked on: don't offer.
+**No Issue worked on:** skip this step entirely.
 
 ### Milestone signal (inline, fast)
 
@@ -208,7 +199,7 @@ Only edit with explicit confirmation.
 
 ## Step 4 — Continuation prompt + summary
 
-Generate a copyable block for next session:
+Generate a copyable block for next session. Note: if a session comment was posted to a GitHub Issue, this same context is now also stored there — next `/bootstrap` will load it automatically.
 
 ```
 ## Session continuation
@@ -226,4 +217,4 @@ Generate a copyable block for next session:
 <!-- Which Milestone this session advanced, if any -->
 ```
 
-Show user what was saved (1-2 lines) + the prompt above.
+Show user what was saved (1-2 lines) + the prompt above. If a session comment was posted to GitHub, add: "Also posted to Issue #N — next bootstrap will pick this up."

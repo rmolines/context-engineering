@@ -1,8 +1,8 @@
 ---
 name: plan
-description: "Cria e gerencia planos estruturados com controle de granularidade. Sub-comandos: '/plan <tarefa>' cria plano novo, '/plan' retoma plano existente, '/plan decompose N' decompõe deliverable. Execução separada via /run. Usar quando quiser planejar antes de executar, controlar granularidade, ou retomar trabalho planejado."
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, AskUserQuestion, WebSearch
-argument-hint: "[tarefa | decompose N]"
+description: "DEPRECATED — absorbed by /delivery. Use /discovery + /delivery instead."
+disable-model-invocation: true
+allowed-tools: Read
 ---
 
 > ⚠️ **DEPRECATED:** This skill has been absorbed by `/delivery` (step 3: decompose).

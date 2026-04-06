@@ -53,6 +53,22 @@ Using template: `templates/state/issue/plan.md`
 
 This is agent infrastructure. Deliverables do NOT become GitHub Issues.
 
+> plan.md is temporary infrastructure — deleted after PR opens (Step 6). 
+> If delivery is interrupted, it can be regenerated from the Issue spec + git diff.
+
+After creating plan.md, post a `## Decomposition` comment on the Issue:
+
+```bash
+gh issue comment $ISSUE_NUMBER --body "$(cat <<'EOF'
+## Decomposition
+
+{list of deliverables with size and deps — from plan.md}
+
+**Git strategy:** {mode}, branch: `{branch_name}`
+EOF
+)"
+```
+
 ## Step 4 — Implement (subagents per deliverable)
 
 For each batch (respecting deps):
@@ -64,8 +80,6 @@ For each batch (respecting deps):
 | Complex (architecture, multi-file, non-trivial logic) | sonnet |
 
 Parallel deliverables within a batch use `isolation: "worktree"`.
-
-Log progress to `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/execution-log.md`
 
 ──▶ **Architectural gate** (if: new DB table, public API change, interface refactor):
 > "Created this structure for #N. OK to proceed?"
@@ -127,7 +141,10 @@ Validator checks each acceptance criterion against the diff:
 
 3. If CI fails: diagnose, fix, push. Never `--no-verify`.
 
-4. Save execution log to `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/execution-log.md`
+4. Delete temporary plan file:
+   ```bash
+   rm -f .claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/plan.md
+   ```
 
 ## Rules
 

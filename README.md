@@ -163,8 +163,8 @@ Session Start
 │  .claude/docs/index.md    Domain map — APIs,     │
 │  (CE layer)               auth, data, patterns   │
 │                                                  │
-│  .claude/state/milestones/ Milestone docs,       │
-│  (CE layer)               discovery notes        │
+│  .claude/state/milestones/ Milestone + Issue docs  │
+│  (CE layer)               {slug}/issue-{N}-{slug}/│
 │                                                  │
 │  research/                Foundational research  │
 └──────────────────────────────────────────────────┘

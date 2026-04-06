@@ -49,12 +49,11 @@ For each completed campaign: create as closed Milestone.
 
 ### Step 3 — Create disk structure
 
-For each Milestone (active + completed):
+For each Milestone (active + completed): create directory only (no milestone.md — milestone content lives in GitHub Milestone description):
 ```
-.claude/state/milestones/{slug}/milestone.md
+.claude/state/milestones/{slug}/
 ```
-Using template `templates/state/milestones/milestone.md`.
-Populate with intent, success state, and signals from campaigns.md.
+Migrate signals from campaigns.md to the GitHub Milestone description via `gh api PATCH`.
 
 For each existing Issue on GitHub with a Milestone:
 ```
@@ -64,7 +63,7 @@ Create directory. If there's a legacy plan file referencing this issue, move rel
 
 ### Step 4 — Migrate legacy files
 
-- `campaigns.md` → content distributed into individual `milestone.md` files. Archive original as `campaigns.md.archive`.
+- `campaigns.md` → signals migrated to GitHub Milestone descriptions. Archive original as `campaigns.md.archive`.
 - `plan-*.md` → if linked to issues, content moves to `milestones/{slug}/issue-{N}/plan.md`. If not linked, stays as-is with deprecation note.
 - Workstream `.md` files → if they map to an Issue, move to the Issue directory. If standalone, keep in `.claude/state/`.
 
@@ -176,16 +175,7 @@ For each open Issue from the GraphQL response:
 2. Check if `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/` exists
 3. If not: create directory. Only `discovery.md` is bootstrapped here (when Issue has `## Acceptance Criteria` in body). `plan.md` and `execution-log.md` are created by `/discovery` and `/delivery`, not bootstrap.
 
-For each Milestone without a local doc:
-1. Create `.claude/state/milestones/{slug}/milestone.md` from template
-2. Populate with Milestone description from GitHub
-
-### Milestone docs — sync signals
-
-For each Milestone that has a local `milestone.md`:
-1. Read GitHub Milestone description via `gh api`
-2. If there are signals in GitHub not in local doc: add them
-3. If there are signals in local doc not in GitHub: sync to GitHub (append to description)
+Milestone content lives in GitHub Milestone descriptions — no local milestone.md needed.
 
 ### Change detection
 
@@ -218,10 +208,10 @@ Don't auto-close — just inform.
 This is the most important step. The sync (steps 1-2) is infrastructure.
 **This step is what makes the session useful.**
 
-### 3.1. Read active Milestone docs
+### 3.1. Read active Milestone context
 
 For each active Milestone (open on GitHub):
-1. Read `.claude/state/milestones/{slug}/milestone.md`
+1. Read GitHub Milestone description via `gh api repos/{owner}/{repo}/milestones`
 2. Extract: intent, success state, **last 5 signals** (most recent first)
 3. This tells the agent: what are we trying to achieve and what have we learned
 

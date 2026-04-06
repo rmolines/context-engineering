@@ -30,7 +30,7 @@ Type: **Meta-project** (framework for Claude Code sessions, not a shipping app).
 
 **Root context**
 - [`CLAUDE.md`](../../CLAUDE.md) — Commander's Intent. Context management layer goals, principles, structure.
-- [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — Canonical reference: philosophy, two worlds model, skills, disk structure, GitHub mapping.
+- [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — Canonical reference: philosophy, context sources & routing, skills, disk structure, GitHub mapping.
 - `README.md` — Quickstart for users.
 
 **Session & State**
@@ -71,7 +71,7 @@ Type: **Meta-project** (framework for Claude Code sessions, not a shipping app).
 
 **Research & Docs**
 - [`research/llm-knowledge-base-pattern.md`](../../research/llm-knowledge-base-pattern.md) — Search + context synthesis pattern for long-term project memory.
-- `ARCHITECTURE.md` — Canonical reference: philosophy (facts-first, pointer > prose), two worlds, skills, state flows, GitHub integration.
+- `ARCHITECTURE.md` — Canonical reference: philosophy (facts-first, pointer > prose), context sources & routing, skills, state flows, GitHub integration.
 
 ---
 

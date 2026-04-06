@@ -84,7 +84,7 @@ Classify what needs persisting:
 | Type | Condition | Action |
 |------|-----------|--------|
 | **Session comment** | Worked on an Issue (discovery or delivery) | Post structured comment to GitHub Issue (GITHUB_MODE=true) or append to `session-log.md` (fallback) |
-| **Milestone signal** | Session advanced a Milestone or revealed something unexpected | Append signal to milestone.md + sync to GitHub |
+| **Milestone signal** | Session advanced a Milestone or revealed something unexpected | Append dated signal to GitHub Milestone description |
 | **Memory** | New learning about user, project, or non-obvious feedback | Save/update in `~/.claude/projects/.../memory/` |
 | **Direction** | Product direction decision (thesis, principles, macro architecture) | Suggest to user (don't edit automatically) |
 | **Open PRs** | GITHUB_MODE=true and open PRs exist | Note in session comment continuation context |
@@ -141,12 +141,16 @@ Rules for the comment content:
 
 **No Issue worked on:** skip this step entirely.
 
-### Milestone signal (inline, fast)
+### Milestone signal (if GITHUB_MODE=true)
 
-If `.claude/state/milestones/` exists and has milestone docs:
+GitHub Milestone description is the source of truth — no local milestone.md.
 
 1. Identify which Milestone the session advanced — infer from work done: commits, edited files, conversation context
-2. If session maps to a Milestone → append dated signal to `milestone.md`:
+2. Find the GitHub Milestone:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title | startswith("[CN]")) | {number, description}'
+   ```
+3. Read current description. Append dated signal to the `## Signals` section:
    ```
    - [YYYY-MM-DD] {concrete observation from the session}
    ```
@@ -155,24 +159,6 @@ If `.claude/state/milestones/` exists and has milestone docs:
    - "pattern X doesn't scale for N>100" (discovery)
    - "user prioritized Y over Z despite spec saying otherwise" (divergence)
 
-3. If session does NOT map to any Milestone → append to the most recent milestone doc:
-   ```
-   - [YYYY-MM-DD] ⚡ Session outside Milestones: {work description}. Possible emergent strategy.
-   ```
-
-4. Check divergence: if 3+ consecutive sessions don't map to any Milestone:
-   > "Recent sessions haven't advanced any active Milestone. This may indicate the Milestones need review or a new direction has emerged. Review Commander's Intent?"
-
-### Milestone signal → GitHub (if GITHUB_MODE=true)
-
-After writing the signal locally:
-
-1. Find the GitHub Milestone:
-   ```bash
-   gh api repos/{owner}/{repo}/milestones --jq '.[] | select(.title | startswith("[CN]")) | {number, description}'
-   ```
-2. Read current Milestone description
-3. Append the dated signal to the `## Signals` section
 4. Update:
    ```bash
    gh api repos/{owner}/{repo}/milestones/{number} \
@@ -180,8 +166,14 @@ After writing the signal locally:
      --field description="{updated description}"
    ```
 5. **Size limit:** if description > 900 chars, warn user that old signals should be archived. Don't truncate automatically.
+6. If session does NOT map to any Milestone: append to the most recently updated active Milestone:
+   ```
+   - [YYYY-MM-DD] ⚡ Session outside Milestones: {work description}. Possible emergent strategy.
+   ```
+7. Check divergence: if 3+ consecutive sessions don't map to any Milestone:
+   > "Recent sessions haven't advanced any active Milestone. This may indicate the Milestones need review. Review Commander's Intent?"
 
-If GitHub detection fails: skip silently (local signal already saved).
+If GitHub detection fails: skip silently.
 
 ### Memory (haiku subagent)
 

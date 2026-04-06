@@ -137,7 +137,37 @@ Fetch all open Issues with their last 5 comments in a single GraphQL call:
    gh issue list --state closed --json number,title,milestone,labels,closedAt --limit 50
    ```
 
-No file is written to disk. The GraphQL response is the session's view of project state — held in memory for steps 3 and 4.
+### Open PRs — lifecycle check
+
+Fetch open PRs to detect pending merges:
+
+```bash
+gh pr list --state open --json number,title,headRefName,labels,createdAt,isDraft --limit 50
+```
+
+Cross-reference PRs with Issues:
+- Match via branch naming: regex `/^agent\/(\d+)-/` extracts Issue number from branch `agent/25-foo`
+- Match via PR body: parse `Closes #N` or `Fixes #N`
+- For each PR, classify:
+
+For each non-draft PR, check if branch is behind main:
+```bash
+gh pr view $PR_NUMBER --json mergeStateStatus --jq '.mergeStateStatus'
+```
+A `BEHIND` status indicates the branch has diverged from main and needs rebase.
+
+| State | How to detect | Flag |
+|---|---|---|
+| **Fresh** | Created <3 days ago, not behind | info only |
+| **Stale** | Created >3 days ago, CI passed | ⚠ yellow — suggest merge |
+| **CI failed** | Last check failed | 🔴 red — suggest diagnosis |
+| **Diverged** | `mergeStateStatus: BEHIND` | 🔴 red — suggest rebase |
+| **Draft** | `isDraft: true` | info only |
+
+If zero open PRs: skip this section entirely (no visible change to existing flow).
+If GITHUB_MODE=false: skip silently.
+
+No file is written to disk. The GraphQL response and PR list are the session's view of project state — held in memory for steps 3 and 4.
 
 ### Disk structure — ensure Issue directories
 
@@ -241,6 +271,11 @@ Left off at: {Next session: field from last session comment}
 - #N "title" — ready for /delivery (spec complete, no blockers)
 - #N "title" — delivery in progress, N/M deliverables done
 
+[PRs awaiting merge]
+- PR #50 "title" → #49 — opened 5d ago, branch: agent/49-slug
+  ⚠ Stale: open >3 days, branch diverged from main
+- PR #62 "title" → #N — opened 1d ago (fresh)
+
 [Needs attention]
 - #N "title" — blocked: {reason}
 - #N "title" — stale (Nd since last activity)
@@ -256,6 +291,7 @@ Left off at: {Next session: field from last session comment}
 **Rules for the briefing:**
 - Only show sections that have content (don't show empty sections)
 - "Ready for action" items first — these are what the user can act on
+- "PRs awaiting merge" section only appears when there are open PRs. Omit entirely if zero.
 - Include the *why* for blocked items, not just the status
 - Continuation context is the most valuable line — put it at the top
 - If nothing is in progress, say so: "Clean slate — no active work."

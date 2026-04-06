@@ -56,8 +56,20 @@ If `git branch -vv` shows `[gone]` entries, present list:
 > "N branches with deleted remote: {list}. Clean up?"
 - If yes: `git branch -d {branch}` for each (use `-D` if `-d` fails).
 
+### Open PRs (if GITHUB_MODE=true)
+```bash
+gh pr list --state open --json number,title,headRefName,createdAt --limit 20
+```
+
+If open PRs exist, surface them:
+> "N open PRs: PR #50 'title' (5d old), PR #62 'title' (1d old). Merge or note in continuation?"
+
+PRs older than 3 days get a ⚠ flag. This is informational — never auto-merge or auto-close.
+
+If GITHUB_MODE=false: skip silently (no error).
+
 ### Skip condition
-If all 4 checks find nothing actionable: output `✓ Repo clean` and proceed to Step 2.
+If all 5 checks find nothing actionable: output `✓ Repo clean` and proceed to Step 2.
 
 ### Error handling
 If any git command fails: skip that check silently, continue with remaining checks.
@@ -75,6 +87,7 @@ Classify what needs persisting:
 | **Milestone signal** | Session advanced a Milestone or revealed something unexpected | Append signal to milestone.md + sync to GitHub |
 | **Memory** | New learning about user, project, or non-obvious feedback | Save/update in `~/.claude/projects/.../memory/` |
 | **Direction** | Product direction decision (thesis, principles, macro architecture) | Suggest to user (don't edit automatically) |
+| **Open PRs** | GITHUB_MODE=true and open PRs exist | Note in session comment continuation context |
 | **Domain drift** | API, auth, schema, or actions code changed but `.claude/docs/` not updated | Alert and suggest domain map update |
 
 **GitHub mode:** If `GITHUB_MODE=true` (see `skills/shared/github-detection.md`), Milestone signal gains GitHub sync and session context is posted as Issue comment (details below).
@@ -102,11 +115,14 @@ gh issue comment $ISSUE_NUMBER --body "$(cat <<'EOF'
 **Decisions:**
 - {decision and rationale}
 
-**Next session:**
-- {concrete next step}
-
 **Key files:**
 - {relevant paths}
+
+**Open PRs:**
+- PR #N "title" (branch, Nd old) — needs merge / CI failed
+
+**Next session:**
+- {concrete next step}
 EOF
 )"
 ```
@@ -114,6 +130,8 @@ EOF
 Rules for the comment content:
 - The `## Session [` prefix is the contract — `/bootstrap` uses it to filter session comments from human comments. Never change this prefix.
 - "What was done": 5-8 bullets max. Details are in commit history. Summarize outcomes, not steps.
+- "Key files": always include relevant paths.
+- "Open PRs": only include if there are open PRs at time of persist. Skip field entirely if zero PRs.
 - "Next session": this is the primary continuation context that next bootstrap will read. Make it specific and actionable.
 - "Decisions": only non-obvious choices that future sessions need to know. Skip if none.
 

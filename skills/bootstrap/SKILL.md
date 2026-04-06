@@ -150,11 +150,18 @@ Cross-reference PRs with Issues:
 - Match via PR body: parse `Closes #N` or `Fixes #N`
 - For each PR, classify:
 
+For each non-draft PR, check if branch is behind main:
+```bash
+gh pr view $PR_NUMBER --json mergeStateStatus --jq '.mergeStateStatus'
+```
+A `BEHIND` status indicates the branch has diverged from main and needs rebase.
+
 | State | How to detect | Flag |
 |---|---|---|
-| **Fresh** | Created <3 days ago | info only |
+| **Fresh** | Created <3 days ago, not behind | info only |
 | **Stale** | Created >3 days ago, CI passed | ⚠ yellow — suggest merge |
 | **CI failed** | Last check failed | 🔴 red — suggest diagnosis |
+| **Diverged** | `mergeStateStatus: BEHIND` | 🔴 red — suggest rebase |
 | **Draft** | `isDraft: true` | info only |
 
 If zero open PRs: skip this section entirely (no visible change to existing flow).
@@ -265,8 +272,8 @@ Left off at: {Next session: field from last session comment}
 - #N "title" — delivery in progress, N/M deliverables done
 
 [PRs awaiting merge]
-- PR #50 "title" → #49 — opened Nd ago, branch: agent/49-slug
-  ⚠ Stale: open >3 days
+- PR #50 "title" → #49 — opened 5d ago, branch: agent/49-slug
+  ⚠ Stale: open >3 days, branch diverged from main
 - PR #62 "title" → #N — opened 1d ago (fresh)
 
 [Needs attention]

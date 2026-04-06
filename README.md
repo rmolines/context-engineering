@@ -4,7 +4,7 @@ A context management layer for Claude Code that makes AI coding sessions statefu
 
 Most AI coding sessions start from zero. The assistant doesn't know your project's architecture, what you were working on yesterday, or where the important files are. You re-explain the same things every time.
 
-Context engineering fixes this. It configures and optimizes Claude Code's native context layers (CLAUDE.md, rules, memory, hooks) and creates new ones (domain maps, state tracking, milestone docs) — so every conversation starts with the right context instead of a blank slate.
+Context engineering fixes this. It configures and optimizes Claude Code's native context layers (CLAUDE.md, rules, memory, hooks) and creates new ones (domain maps, milestone docs, GitHub infrastructure) — so every conversation starts with the right context instead of a blank slate.
 
 ## How it relates to Claude Code
 
@@ -15,14 +15,33 @@ Claude Code already has a context architecture: CLAUDE.md files, rules, memory, 
 │  CLAUDE.md    Rules    Memory    Hooks    Skills/Plugins  │
 ├─ CE manages ─────────────────────────────────────────────┤
 │  ↑ configures and optimizes native layers                │
-│  + creates: domain map, state tracking, milestone docs   │
+│  + creates: domain map, milestone docs, GitHub infra     │
 │  + connects: GitHub Issues/Milestones as human interface │
 └──────────────────────────────────────────────────────────┘
 ```
 
 **Native layers CE manages:** generates optimized CLAUDE.md templates, installs session rules, writes learnings to memory, configures hooks.
 
-**New layers CE creates:** domain maps (`.claude/docs/`), state tracking (`.claude/state/`), milestone docs, GitHub infrastructure (labels, milestones, Projects V2).
+**New layers CE creates:** domain maps (`.claude/docs/`), milestone docs (`.claude/state/milestones/`), GitHub infrastructure (labels, milestones, Projects V2).
+
+## Two worlds
+
+CE operates across two worlds with different audiences:
+
+```
+┌─ Human world (GitHub) ──────────────┐  ┌─ Agent world (local disk) ──────────┐
+│                                     │  │                                     │
+│  Issues       → requests + specs    │  │  .claude/docs/    → domain map      │
+│  Milestones   → goals + signals     │  │  .claude/state/   → milestone docs  │
+│  PRs          → deliveries          │  │  discovery.md     → research notes  │
+│  Comments     → session history     │  │  plan.md (temp)   → agent infra     │
+│                                     │  │                                     │
+│  Audience: you (stakeholder)        │  │  Audience: Claude (across sessions) │
+│  Nature: permanent record           │  │  Nature: operational + historical   │
+└─────────────────────────────────────┘  └─────────────────────────────────────┘
+```
+
+The **Issue** is the handoff contract between worlds. Discovery (human + Claude) produces it. Delivery (Claude alone) consumes it. Session history lives as GitHub Issue comments — no local state files needed.
 
 ## What it does
 
@@ -31,13 +50,24 @@ Install it and you get slash commands that form a complete session protocol:
 | Command | What it does |
 |---------|-------------|
 | `/init` | Sets up CE in your project — generates CLAUDE.md, domain map, configures GitHub. Idempotent, run anytime to check health. |
-| `/bootstrap` | Loads session context — live GitHub query, deep context loading, briefing, alignment. Run at start of each session. |
+| `/bootstrap` | Loads session context — live GitHub query via GraphQL, deep context loading, briefing, alignment. Run at start of each session. |
 | `/discovery` | Upstream: transforms a rough request into a spec'd GitHub Issue. Human + Claude collaboration. |
 | `/delivery` | Downstream: picks up a spec'd Issue and delivers a PR with validation report. Autonomous. |
-| `/persist` | Saves session state — progress, decisions, learnings. Detects domain drift. Generates continuation prompts. |
+| `/persist` | Saves session state as GitHub Issue comments — progress, decisions, continuation context. Detects domain drift. |
 | `/distill` | Crystallizes a workflow into a reusable skill. Extracts patterns and anti-patterns. |
 
-Plus **hooks** (auto-restore context after compaction), **rules** (explore-plan-execute cycle, facts-first documentation), and **templates** (CLAUDE.md, domain maps, state files).
+Plus **hooks** (auto-restore context after compaction), **rules** (explore-plan-execute cycle, facts-first documentation), and **templates** (CLAUDE.md, domain maps, milestone docs).
+
+### The flow
+
+```
+/init       →  one-time project setup (CLAUDE.md, domain map, GitHub)
+/bootstrap  →  every session (load context, briefing, align)
+
+/discovery  →  research + spec a request into a GitHub Issue
+/delivery   →  implement a spec'd Issue → PR with validation
+/persist    →  save session state as Issue comments for next session
+```
 
 ## Install
 
@@ -70,14 +100,14 @@ Then load session context:
 /bootstrap
 ```
 
-This queries GitHub live, loads deep context, and presents a standup briefing.
+This queries GitHub live (single GraphQL call for Issues + comments), loads deep context, and presents a standup briefing with continuation from your last session.
 
 From here, the typical flow is:
 
 ```
 /discovery →  research + spec a request into a GitHub Issue
 /delivery  →  implement a spec'd Issue → PR with validation
-/persist   →  save state for next session
+/persist   →  save state as Issue comments for next session
 ```
 
 Next time you open the project, `/bootstrap` loads fresh context from GitHub — no re-explanation needed.
@@ -121,23 +151,23 @@ Session Start
 │                                                 │
 │  Memory index       User prefs, project facts   │
 │  (native)                                       │
-│                                                 │
-│  STATE.md           Active work, backlog        │
-│  (CE layer)         (live from GitHub)          │
 └─────────────────────┬───────────────────────────┘
                       │
                       │  progressive disclosure
-                      │  (loaded on demand)
+                      │  (loaded on demand by /bootstrap)
                       ▼
 ┌─────────────────────────────────────────────────┐
-│  .claude/docs/index.md    Domain map — APIs,    │
-│  (CE layer)               auth, data, patterns  │
-│                                                 │
-│  .claude/state/milestones/ Issue context —       │
-│  (CE layer)               discovery, plan, log  │
-│                                                 │
+│  GitHub (live)            Issues, comments,      │
+│                           milestones, PRs        │
+│                                                  │
+│  .claude/docs/index.md    Domain map — APIs,     │
+│  (CE layer)               auth, data, patterns   │
+│                                                  │
+│  .claude/state/milestones/ Milestone docs,       │
+│  (CE layer)               discovery notes        │
+│                                                  │
 │  research/                Foundational research  │
-└─────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────┘
 ```
 
 **Key constraint:** LLMs degrade after ~70% context window usage. Auto-compaction triggers at ~83.5%. The system keeps critical info in the always-on layer and loads detail on demand.
@@ -148,15 +178,15 @@ Session Start
 context-engineering/
 ├── skills/                  # 6 slash commands
 │   ├── init/                #   project setup (native + CE layers)
-│   ├── bootstrap/           #   session context loading
+│   ├── bootstrap/           #   session context loading (GraphQL + briefing)
 │   ├── discovery/           #   upstream: request → spec'd GitHub Issue
 │   ├── delivery/            #   downstream: Issue → PR with validation
-│   ├── persist/             #   session state persistence
+│   ├── persist/             #   session state → GitHub Issue comments
 │   └── distill/             #   workflow crystallization
 │
 ├── hooks/                   # Lifecycle hooks
 │   ├── hooks.json           #   hook configuration
-│   └── post-compact.sh      #   re-inject state after context compaction
+│   └── post-compact.sh      #   re-inject context after compaction
 │
 ├── rules/                   # Auto-loaded behavioral rules
 │   ├── session-cycle.md     #   explore → plan → execute
@@ -166,7 +196,7 @@ context-engineering/
 ├── templates/               # Reusable project templates
 │   ├── claude-md-root.md    #   CLAUDE.md template (fact-first)
 │   ├── docs/index.md        #   domain map template
-│   ├── state/               #   state tracking templates
+│   ├── state/               #   milestone + issue templates
 │   └── ci/                  #   GitHub Actions CI template
 │
 ├── research/                # Foundational research on context engineering
@@ -182,8 +212,8 @@ Not everything belongs in CLAUDE.md. The ~200 line budget means you need to choo
 
 | If Claude would err on... | It's... | Where it goes |
 |--------------------------|---------|---------------|
-| **Direction** (builds wrong thing) | Always-on | CLAUDE.md, STATE.md |
-| **Detail** (builds right thing, wrong way) | Progressive | .claude/docs/, plan files |
+| **Direction** (builds wrong thing) | Always-on | CLAUDE.md |
+| **Detail** (builds right thing, wrong way) | Progressive | .claude/docs/, GitHub Issues |
 
 ### Pointer > prose
 
@@ -193,9 +223,9 @@ Don't describe code — point to it. One line with a file path and 3-5 word anno
 
 Instead of writing rules about code style, point to your best existing example. The AI reads it and pattern-matches — more reliable than any written rule.
 
-### The /persist bridge
+### GitHub as session memory
 
-At session end, `/persist` routes information to the right place — progress to STATE.md, learnings to memory, drift detection to domain maps. It generates a continuation prompt so the next session picks up exactly where you left off.
+At session end, `/persist` posts structured comments to the GitHub Issues you worked on — what was done, decisions made, and what comes next. At session start, `/bootstrap` reads these comments via GraphQL and presents a continuation briefing. No local state files needed for session handoff.
 
 ## Research
 

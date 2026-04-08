@@ -266,10 +266,17 @@ Validator produces a **structured critique**, not just pass/fail:
    {what was built, 2-3 bullets}
 
    ## Validation Report
-   {from step 5}
+   {from step 5 — structured critique with scoring}
 
    ## Grounding Report
    {from step 2.5 — omit section if grounding was skipped}
+
+   ## Key Decisions
+   {from execution-log.md decision markers — list each DECISION with id, choice, alternatives, and reason. This helps the human reviewer understand WHY, not just WHAT.}
+
+   | Decision | Chose | Alternatives | Reason |
+   |----------|-------|-------------|--------|
+   | {id} | {choice} | {alt1, alt2} | {why} |
 
    ## Test plan
    - [ ] CI passes
@@ -293,6 +300,29 @@ Validator produces a **structured critique**, not just pass/fail:
    ```
    Note: `execution-log.md` is NOT deleted — it's the permanent history.
 
+## Rework mode (triggered by /orchestrate)
+
+When `/orchestrate` detects human feedback on a PR and re-invokes delivery:
+
+**Input:** Issue number + PR number + human comment(s) classified as change requests.
+
+1. Checkout the existing PR branch
+2. Read the human comment and identify which decision point is affected
+3. Re-run ONLY the affected batch with the comment as a constraint:
+   - "Re-implement {scope} using {human's preference} instead of {original choice}."
+   - "Original decision: chose {X} for {reason}. Human override: use {Y} instead."
+   - "Keep everything else unchanged."
+4. Push new commits to the same PR branch (don't force-push)
+5. Run validation (Step 5) on the updated diff
+6. Update PR body with refreshed reports
+7. Add `DECISION-OVERRIDDEN` marker to execution-log:
+   ```html
+   <!-- DECISION-OVERRIDDEN: {id} | original: {choice} | override: {new_choice} | by: human (PR #{pr} comment) | reason: {human's feedback} -->
+   ```
+8. Comment on PR: "Updated per your feedback: {summary}. Validation: {PASS/FAIL}."
+
+**Scope discipline:** rework touches ONLY what the human asked to change. Don't redo unaffected batches. Don't "improve" adjacent code.
+
 ## Rules
 
 - **Never start without acceptance criteria.** If the Issue is underspecified, abort and redirect to `/discovery`.
@@ -300,3 +330,4 @@ Validator produces a **structured critique**, not just pass/fail:
 - **Checkpoints are not optional.** Architectural gates block. Notification checkpoints log.
 - **The plan is internal.** Deliverables D1/D2/D3 never appear in GitHub.
 - **CI is the quality gate.** If it fails, fix it. Never skip.
+- **Never merge PRs in autonomous mode.** Only open/update them. Human approves.

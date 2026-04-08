@@ -180,33 +180,80 @@ This ensures that if the agent crashes mid-delivery, the next `/delivery #N` res
 > "Created this structure for #N. OK to proceed?"
 > Blocks until user approves.
 
-## Step 5 — Validate (sonnet subagent — isolated)
+## Step 5 — Validate (sonnet subagent — isolated, generate→critique→refine)
 
 **Critical: the validator receives ONLY:**
 1. The Issue spec (from GitHub, not from the implementer's context)
 2. The git diff (`git diff main...HEAD`)
+3. Decision points from `execution-log.md` (what choices were made and why)
+4. Grounding report from Step 2.5 (what external premises were verified)
 
 **The validator does NOT inherit implementation context.**
 
-Validator checks each acceptance criterion against the diff:
+### 5.1 — Structured critique
+
+Validator produces a **structured critique**, not just pass/fail:
 
 ```markdown
-## Validation Report — Issue #N
+## Validation Critique — Issue #N
 
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| criterion 1 | pass | found in src/auth/refresh.ts:L45 |
-| criterion 2 | pass | test in tests/refresh.test.ts |
-| criterion 3 | fail | not found in diff |
+### Blocking (must fix before merge)
+1. **{what's wrong}**
+   - Criterion: "{which acceptance criterion}"
+   - What's wrong: {specific issue with file:line reference}
+   - Fix instruction: {actionable — what to change, where}
+   - Files affected: {paths}
 
-**Result: PASS / FAIL**
+### Warnings (should fix, not blocking)
+2. **{concern}**
+   - Criterion: {related criterion or "best practice"}
+   - Suggestion: {what to do}
+
+### Observations (informational)
+3. **{note}** — {context}
+
+### Scoring
+
+| Dimension | Result |
+|-----------|--------|
+| Correctness | N/M criteria met |
+| Completeness | N% of criteria addressed |
+| Safety | ok / warning / blocking |
+| Coherence | high / medium / low (follows codebase patterns?) |
+| Regressions | N tests passing, N failing |
+
+**Result: PASS / NEEDS REFINEMENT / FAIL**
 ```
 
+### 5.2 — Refinement loop (max 2 cycles)
+
 ──▶ **If PASS:** proceed to step 6.
-──▶ **If FAIL — Failure gate:**
-> "Validation failed for #N. Criteria not met: [list]. Fix or accept?"
-> If fix: loop back to step 4 for the failing criteria.
-> If accept: proceed with note in PR body.
+
+──▶ **If NEEDS REFINEMENT** (has blocking items but they're fixable):
+
+**Cycle 1:** Send fix instructions to workers (scoped to specific files/functions):
+- Workers receive ONLY the blocking items with fix instructions
+- Workers apply targeted fixes (don't redo unaffected batches)
+- Validator re-critiques the updated diff
+
+**Cycle 2** (if still has blocking items):
+- Refined fix instructions based on what changed
+- Workers apply second round of fixes
+- Validator final evaluation
+
+──▶ **If still failing after 2 refinement cycles — Failure gate:**
+> "Validation failed for #N after 2 refinement cycles. Critique history:
+> - Cycle 0: {original issues}
+> - Cycle 1: {what was fixed, what persists}
+> - Cycle 2: {what was fixed, what persists}
+> Remaining blocking items: [list with fix attempts].
+> Recommend: {human judgment needed — change approach? override? abandon?}"
+
+──▶ **If FAIL** (fundamental design issue, not fixable with targeted patches):
+> "Validation identified fundamental issue for #N: {description}.
+> Decision point '{id}' may be the root cause.
+> Alternatives from execution-log: {alt1, alt2}.
+> Recommend: revisit decision '{id}' or escalate to human."
 
 ## Step 6 — Deliver (inline)
 

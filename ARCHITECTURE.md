@@ -263,8 +263,9 @@ Autonomous. Claude picks up an Issue and delivers a PR.
   ├── 2. Decompose (internal plan)
   ├── 3. Implement (subagents per deliverable)
   │     --> Architectural gate (if irreversible decision)
-  ├── 4. Validate (sonnet subagent -- isolated)
-  │     --> Failure gate (if validation fails)
+  ├── 4. Validate (sonnet subagent -- isolated, critique→refine loop)
+  │     --> Refinement (up to 2 cycles of targeted fixes)
+  │     --> Failure gate (if still failing after 2 cycles)
   └── 5. Deliver (PR with validation + grounding report)
 ```
 

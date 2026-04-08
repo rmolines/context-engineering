@@ -198,6 +198,7 @@ Three categories: **infra** (project setup), **context** (session memory), and *
 | `/persist` | Context out | Agent | haiku | low |
 | `/discovery` | Upstream (problem -> spec) | Human + Claude | inherited | -- |
 | `/delivery` | Downstream (spec -> code) | Claude alone | sonnet | high |
+| `/orchestrate` | Autonomous conductor | Claude alone (scheduled) | sonnet | high |
 | `/distill` | Meta (workflow -> skill) | Human + Claude | inherited | -- |
 
 ### Init — project setup
@@ -413,11 +414,14 @@ The validator subagent is always isolated — receives only the Issue spec and g
   ↓
 /bootstrap (each session) → load context, align
   ↓
-/discovery → research + spec into Issue (optional)
+/discovery → research + spec into Issue (optional, human + Claude)
   ↓
-/delivery #N → implement Issue → PR
+/delivery #N → implement Issue → PR (single Issue)
   ↓
 /persist → save state + signals + detect drift
+
+Autonomous loop (scheduled):
+/orchestrate → /bootstrap → process PR feedback → /delivery (per Issue) → /persist
 ```
 
 Skills are progressive disclosure — only the description (~250 chars) loads until invoked. Full content loads on demand.

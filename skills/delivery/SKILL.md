@@ -87,8 +87,9 @@ Subagent verifies each premise via WebSearch against live sources (official docs
 ## Step 3 — Decompose (inline)
 
 Create internal plan at `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/plan.md`
+Create execution log at `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/execution-log.md`
 
-Using template: `templates/state/issue/plan.md`
+Using templates: `templates/state/issue/plan.md`, `templates/state/issue/execution-log.md`
 
 - Break into deliverables (D1, D2, ...)
 - Identify deps and batches
@@ -124,6 +125,19 @@ For each batch (respecting deps):
 | Complex (architecture, multi-file, non-trivial logic) | sonnet |
 
 Parallel deliverables within a batch use `isolation: "worktree"`.
+
+**Decision markers:** After each batch, update `execution-log.md` with:
+- Batch status (✅ completed / ❌ failed)
+- Decision points for consequential choices made during implementation:
+  ```html
+  <!-- DECISION: {id} | chose: {choice} | alternatives: {alt1 (reason), alt2 (reason)} | reason: {why} -->
+  ```
+- If a decision leads to failure:
+  ```html
+  <!-- DECISION-FAILED: {id} | {what went wrong} | revert-to: {decision-id to revisit} -->
+  ```
+
+Mark decisions when: choosing between alternatives (lib, architecture, approach), committing to irreversible technical choices (schema, API contract), or explicitly skipping something. Don't mark routine implementation details.
 
 ──▶ **Architectural gate** (if: new DB table, public API change, interface refactor):
 > "Created this structure for #N. OK to proceed?"

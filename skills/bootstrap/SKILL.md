@@ -238,9 +238,24 @@ Scan the last session comment across all open Issues (from the GraphQL response)
 - Extract the `Next session:` field from that comment
 - This is the handoff from the previous session's `/persist` — it IS the continuation context
 
-No execution-log.md scanning needed. GitHub comments are the source of truth.
+### 3.4. Read decision points (if delivery in progress)
 
-### 3.4. Read domain map
+For Issues classified as "Delivery in progress" that have a local `execution-log.md`:
+1. Read the execution-log file
+2. Parse `<!-- DECISION: -->` markers to build a decision history
+3. Parse `<!-- DECISION-FAILED: -->` markers to identify failed paths
+4. If a failed decision exists, surface it in the briefing:
+   ```
+   ⚠️ Issue #N: decision "{id}" failed ({what went wrong}).
+   Last good state: {revert-to point}.
+   Original alternatives: {alt1, alt2}.
+   Suggest: re-evaluate with {best alternative}, or research new options.
+   ```
+5. If no failures, show the last decision point as context for continuation
+
+This complements GitHub comments (session-level handoff) with execution-level detail from the log.
+
+### 3.5. Read domain map
 
 If `.claude/docs/index.md` exists: read it. This gives the agent the project's technical landscape (APIs, auth, schema, patterns).
 

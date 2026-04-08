@@ -349,7 +349,7 @@ Mirrors GitHub hierarchy. Everything is permanent (historical archive + operatio
 │   │   │   ├── issue-10-refresh-tokens/
 │   │   │   │   ├── discovery.md              # research, decisions, UX flow, context
 │   │   │   │   ├── plan.md                   # decomposition, batches, git strategy
-│   │   │   │   └── execution-log.md          # what happened, problems, solutions
+│   │   │   │   └── execution-log.md          # execution history + decision markers (DECISION/DECISION-FAILED/DECISION-OVERRIDDEN)
 │   │   │   └── issue-12-dark-mode/
 │   │   │       └── ...
 │   │   └── c3-validacao-externa/

@@ -130,6 +130,7 @@ CE is a context router. It knows where each type of context lives and how to mov
 | Native: rules/ | Behavioral constraints | Always-on |
 | Native: memory/ | User preferences, feedback | Always-on (index) |
 | Native: hooks/ | Lifecycle automation | Always-on |
+| External: WebSearch | Live docs, API refs, changelogs | /delivery step 2.5 (grounding) |
 
 ### Routing criteria
 
@@ -257,12 +258,14 @@ Autonomous. Claude picks up an Issue and delivers a PR.
 ```
 /delivery #10
   ├── 1. Research (sonnet subagent)
+  ├── 1.5. Ground (sonnet subagent + WebSearch — skipped for pure internal work)
+  │     --> Grounding gate (if critical premise invalidated)
   ├── 2. Decompose (internal plan)
   ├── 3. Implement (subagents per deliverable)
   │     --> Architectural gate (if irreversible decision)
   ├── 4. Validate (sonnet subagent -- isolated)
   │     --> Failure gate (if validation fails)
-  └── 5. Deliver (PR with validation report)
+  └── 5. Deliver (PR with validation + grounding report)
 ```
 
 **Checkpoint types:**
@@ -270,6 +273,7 @@ Autonomous. Claude picks up an Issue and delivers a PR.
 | Type | When | Blocks? |
 |---|---|---|
 | Notification | Decomposition done | No |
+| Grounding gate | Critical external premise invalidated | Yes |
 | Architectural gate | New structure, public API change | Yes |
 | Failure gate | Validation failed, CI failed | Yes |
 
@@ -395,6 +399,7 @@ The more expensive the model, the more it orchestrates and less it executes.
 | Conversation with human, synthesis, decisions | Opus or Sonnet (inherited) |
 | Implementation, technical reasoning | Sonnet |
 | Mechanical: template, extraction, grep, formatting | Haiku |
+| Grounding (premise verification + WebSearch) | Sonnet (receives research output + spec only) |
 | Validation (requires judgment) | Sonnet (isolated, no implementation context) |
 
 The validator subagent is always isolated — receives only the Issue spec and git diff.
@@ -438,10 +443,12 @@ Skills are progressive disclosure — only the description (~250 chars) loads un
 
                             /delivery #10
                               reads Issue ◄──────────── Issue #10
+                              researches (subagent)
+                              grounds premises ◄──── WebSearch (docs, APIs)
                               decomposes (internal plan)
                               implements (subagents)
                               validates (isolated)
-                              opens PR ──────────────► PR #15 (code + report)
+                              opens PR ──────────────► PR #15 (code + reports)
                               CI passes ─────────────► auto-merge
                               Issue closes ──────────► #10 Done
 

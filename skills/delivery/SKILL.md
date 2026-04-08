@@ -36,9 +36,53 @@ Subagent reads:
 - Relevant code (files mentioned in spec, canonical patterns from domain map)
 - External docs (if spec references APIs, libs, or patterns)
 
-Returns: technical context + risks + suggested approach.
+Returns: technical context + risks + suggested approach + list of external premises (APIs, libs, services referenced).
 
-──▶ **Notification checkpoint:** "Approaching #N as X in N parts: [summary]"
+## Step 2.5 — Ground (sonnet subagent with WebSearch)
+
+**Purpose:** Verify external premises from research before committing to a plan. Prevents implementing against wrong assumptions (changed APIs, deprecated libs, outdated patterns).
+
+**Heuristic — skip grounding when ALL of these are true:**
+- Pure internal refactor (no external deps involved)
+- No external APIs or third-party services referenced in spec or research
+- All dependencies are pinned and internal
+- Issue is about UI/copy changes only
+
+**When grounding runs**, subagent receives:
+- External premises extracted from research output (APIs, lib versions, endpoints, service capabilities)
+- Issue spec (for additional external references)
+
+Subagent verifies each premise via WebSearch against live sources (official docs, changelogs, npm/pypi, API references). Returns:
+
+```markdown
+## Grounding Report
+
+| Premise | Source | Status | Notes |
+|---------|--------|--------|-------|
+| jose v5.2 supports ES256 | npmjs.com/package/jose | ✅ verified | current: v5.4, ES256 supported since v4.0 |
+| /api/v3/auth accepts PKCE | developer.example.com | ⚠️ changed | v3 deprecated, v4 is current — PKCE only on v4 |
+| tailwind v4 supports @apply | tailwindcss.com/docs | ✅ verified | |
+
+### Flagged risks
+- **BLOCKING:** /api/v3/auth is deprecated. Spec should target v4. Research premise invalid.
+
+### Corrections
+- Update auth integration to use API v4 endpoints (breaking change from v3: new token format)
+```
+
+**If blocking risks found:** surface to orchestrator before proceeding to decompose:
+> "Grounding found invalid premise for #N: [detail]. Research assumed X but current state is Y. Adjusting plan to account for Y."
+
+**If no blocking risks:** proceed to decompose. Grounding report is carried forward to Step 6 (PR body).
+
+**Persist:** append grounding results to `discovery.md` with timestamp:
+```markdown
+## Grounding — 2026-04-08
+- ✅ jose v5.4: ES256 supported
+- ⚠️ API v3 deprecated → using v4
+```
+
+──▶ **Notification checkpoint:** "Approaching #N as X in N parts: [summary]. Grounding: N premises verified, N flagged."
 
 ## Step 3 — Decompose (inline)
 
@@ -125,6 +169,9 @@ Validator checks each acceptance criterion against the diff:
 
    ## Validation Report
    {from step 5}
+
+   ## Grounding Report
+   {from step 2.5 — omit section if grounding was skipped}
 
    ## Test plan
    - [ ] CI passes

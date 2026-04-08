@@ -224,12 +224,18 @@ A **session comment** is any comment whose body starts with `## Session [`.
 | State | How to detect | Priority |
 |---|---|---|
 | **Ready for delivery** | Issue body has `## Acceptance Criteria`, zero session comments | High — can be worked on now |
-| **Delivery in progress** | Last session comment contains `Next session:` field | High — has momentum |
+| **Delivery in progress** | Last session comment contains `Next session:` field, or `execution-state.json` exists | High — has momentum |
+| **Delivery resumable** | `execution-state.json` exists with completed + pending batches | High — can resume with `/delivery #N` |
 | **Blocked** | Last session comment contains `Blocked:` | Medium — needs attention |
 | **Needs discovery** | Issue body lacks `## Acceptance Criteria` | Low — needs human |
 | **Just created** | No body content beyond the title | Low — needs triage |
 
-If the Issue directory exists locally and has a `discovery.md`, read it for deeper context (decisions, UX flow, technical spec).
+If the Issue directory exists locally:
+- Read `discovery.md` (if present) for deeper context (decisions, UX flow, technical spec)
+- Read `execution-state.json` (if present) to determine resumable delivery state:
+  - Count completed vs pending batches
+  - Note last checkpoint timestamp
+  - Surface in briefing: "Issue #N: delivery N/M batches complete, resumable with `/delivery #N`"
 
 ### 3.3. Read continuation context
 

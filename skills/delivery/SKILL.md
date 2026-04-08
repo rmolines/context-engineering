@@ -29,6 +29,20 @@ Parse the Issue spec:
 If the Issue lacks acceptance criteria: **abort**. Return to user:
 > "Issue #N has no acceptance criteria. Run `/discovery #N` to complete the spec first."
 
+## Step 1.5 — Resume check
+
+Check if `execution-state.json` exists at `.claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/`:
+
+**If state file exists:**
+1. Read `execution-state.json`
+2. Compare `plan_hash` with current plan (if plan.md exists)
+   - If hash matches: safe to resume
+   - If hash differs: warn "Plan changed since last run. Resume from checkpoint or restart?"
+3. Report completed batches: "Batches 1-2 of 5 completed (PRs #15, #16). Resuming from batch 3."
+4. **Skip to Step 4** for the first non-completed batch. Skip Steps 2, 2.5, 3 entirely (already done).
+
+**If no state file:** proceed to Step 2 (fresh delivery).
+
 ## Step 2 — Research (sonnet subagent)
 
 Subagent reads:
@@ -101,6 +115,22 @@ This is agent infrastructure. Deliverables do NOT become GitHub Issues.
 > plan.md is temporary infrastructure — deleted after PR opens (Step 6). 
 > If delivery is interrupted, it can be regenerated from the Issue spec + git diff.
 
+**Initialize execution-state.json** with all batches as `pending` and a hash of plan.md:
+
+```json
+{
+  "issue": N,
+  "delivery_started": "ISO-8601",
+  "plan_hash": "sha256 of plan.md content",
+  "batches": [
+    {"id": 1, "status": "pending"},
+    {"id": 2, "status": "pending"}
+  ],
+  "grounding": {"verified_at": "ISO-8601", "flags": []},
+  "last_checkpoint": "ISO-8601"
+}
+```
+
 After creating plan.md, post a `## Decomposition` comment on the Issue:
 
 ```bash
@@ -138,6 +168,13 @@ Parallel deliverables within a batch use `isolation: "worktree"`.
   ```
 
 Mark decisions when: choosing between alternatives (lib, architecture, approach), committing to irreversible technical choices (schema, API contract), or explicitly skipping something. Don't mark routine implementation details.
+
+**Checkpoint after each batch:** update `execution-state.json`:
+- Set batch status to `completed` with `completed_at`, `branch`, and `pr` number
+- Set next batch to `in_progress` with `started_at`
+- Update `last_checkpoint` timestamp
+
+This ensures that if the agent crashes mid-delivery, the next `/delivery #N` resumes from the last completed batch (via Step 1.5).
 
 ──▶ **Architectural gate** (if: new DB table, public API change, interface refactor):
 > "Created this structure for #N. OK to proceed?"
@@ -202,10 +239,12 @@ Validator checks each acceptance criterion against the diff:
 
 3. If CI fails: diagnose, fix, push. Never `--no-verify`.
 
-4. Delete temporary plan file:
+4. Delete temporary files (plan + execution state):
    ```bash
    rm -f .claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/plan.md
+   rm -f .claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/execution-state.json
    ```
+   Note: `execution-log.md` is NOT deleted — it's the permanent history.
 
 ## Rules
 

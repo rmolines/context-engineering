@@ -349,7 +349,8 @@ Mirrors GitHub hierarchy. Everything is permanent (historical archive + operatio
 │   │   │   ├── issue-10-refresh-tokens/
 │   │   │   │   ├── discovery.md              # research, decisions, UX flow, context
 │   │   │   │   ├── plan.md                   # decomposition, batches, git strategy
-│   │   │   │   └── execution-log.md          # execution history + decision markers (DECISION/DECISION-FAILED/DECISION-OVERRIDDEN)
+│   │   │   │   ├── execution-log.md          # execution history + decision markers (DECISION/DECISION-FAILED/DECISION-OVERRIDDEN)
+│   │   │   │   └── execution-state.json     # checkpoint state (batch progress, plan hash) — deleted after PR
 │   │   │   └── issue-12-dark-mode/
 │   │   │       └── ...
 │   │   └── c3-validacao-externa/

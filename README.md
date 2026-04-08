@@ -4,7 +4,7 @@ A context management layer for Claude Code that makes AI coding sessions statefu
 
 Most AI coding sessions start from zero. The assistant doesn't know your project's architecture, what you were working on yesterday, or where the important files are. You re-explain the same things every time.
 
-Context engineering fixes this. It configures and optimizes Claude Code's native context layers (CLAUDE.md, rules, memory, hooks) and creates new ones (domain maps, milestone docs, GitHub infrastructure) — so every conversation starts with the right context instead of a blank slate.
+Context engineering fixes this. It configures and optimizes Claude Code's native context layers (CLAUDE.md, rules, memory, hooks) and creates new ones (domain maps, GitHub infrastructure) — so every conversation starts with the right context instead of a blank slate.
 
 ## How it relates to Claude Code
 
@@ -22,26 +22,36 @@ Claude Code already has a context architecture: CLAUDE.md files, rules, memory, 
 
 **Native layers CE manages:** generates optimized CLAUDE.md templates, installs session rules, writes learnings to memory, configures hooks.
 
-**New layers CE creates:** domain maps (`.claude/docs/`), milestone docs (`.claude/state/milestones/`), GitHub infrastructure (labels, milestones, Projects V2).
+**New layers CE creates:** domain maps (`.claude/docs/`), `.claude/state/` state tracking, GitHub infrastructure (labels, milestones, Projects V2).
 
-## Two worlds
+## Context architecture
 
-CE operates across two worlds with different audiences:
+CE routes context between multiple sources and your session:
 
 ```
-┌─ Human world (GitHub) ──────────────┐  ┌─ Agent world (local disk) ──────────┐
-│                                     │  │                                     │
-│  Issues       → requests + specs    │  │  .claude/docs/    → domain map      │
-│  Milestones   → goals + signals     │  │  .claude/state/   → milestone docs  │
-│  PRs          → deliveries          │  │  discovery.md     → research notes  │
-│  Comments     → session history     │  │  plan.md (temp)   → agent infra     │
-│                                     │  │                                     │
-│  Audience: you (stakeholder)        │  │  Audience: Claude (across sessions) │
-│  Nature: permanent record           │  │  Nature: operational + historical   │
-└─────────────────────────────────────┘  └─────────────────────────────────────┘
+┌─ Context sources ─────────────────────────────────────────┐
+│                                                           │
+│  GitHub Issues    → specs + session history (comments)   │
+│  GitHub Milestones → goals + signals                     │
+│  GitHub PRs       → delivery state                       │
+│                                                           │
+│  .claude/docs/    → domain map (APIs, auth, patterns)    │
+│  discovery.md     → deep research notes (per Issue)      │
+│                                                           │
+│  CLAUDE.md        → project identity (always-on)        │
+│  rules/           → session behavior (always-on)         │
+│  memory/          → user preferences (always-on)         │
+└────────────────────────────┬──────────────────────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+         /bootstrap      /persist      /discovery
+         (read)          (write)        /delivery
+              └──────────────┴──────────────┘
+                       Session context
 ```
 
-The **Issue** is the handoff contract between worlds. Discovery (human + Claude) produces it. Delivery (Claude alone) consumes it. Session history lives as GitHub Issue comments — no local state files needed.
+The **Issue** is the handoff contract — discovery (human + Claude) produces it, delivery (Claude alone) consumes it. Session history lives as GitHub Issue comments — no local state files needed.
 
 ## What it does
 
@@ -56,7 +66,7 @@ Install it and you get slash commands that form a complete session protocol:
 | `/persist` | Saves session state as GitHub Issue comments — progress, decisions, continuation context. Detects domain drift. |
 | `/distill` | Crystallizes a workflow into a reusable skill. Extracts patterns and anti-patterns. |
 
-Plus **hooks** (auto-restore context after compaction), **rules** (explore-plan-execute cycle, facts-first documentation), and **templates** (CLAUDE.md, domain maps, milestone docs).
+Plus **hooks** (auto-restore context after compaction), **rules** (explore-plan-execute cycle, facts-first documentation), and **templates** (CLAUDE.md, domain maps, issue docs).
 
 ### The flow
 
@@ -163,10 +173,8 @@ Session Start
 │  .claude/docs/index.md    Domain map — APIs,     │
 │  (CE layer)               auth, data, patterns   │
 │                                                  │
-│  .claude/state/milestones/ Milestone + Issue docs  │
+│  .claude/state/milestones/ Issue context docs      │
 │  (CE layer)               {slug}/issue-{N}-{slug}/│
-│                                                  │
-│  research/                Foundational research  │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -196,7 +204,7 @@ context-engineering/
 ├── templates/               # Reusable project templates
 │   ├── claude-md-root.md    #   CLAUDE.md template (fact-first)
 │   ├── docs/index.md        #   domain map template
-│   ├── state/               #   milestone + issue templates
+│   ├── state/               #   issue templates
 │   └── ci/                  #   GitHub Actions CI template
 │
 ├── research/                # Foundational research on context engineering
@@ -229,13 +237,7 @@ At session end, `/persist` posts structured comments to the GitHub Issues you wo
 
 ## Research
 
-The `research/` directory contains foundational research on context engineering:
-
-- **Context engineering overview** — definitions, origin, core components
-- **Landscape analysis** — taxonomy of approaches, state of the art
-- **Claude Code internals** — how Claude Code manages context natively
-- **Context window internals** — degradation curves, compaction mechanics
-- **Intra-session patterns** — patterns for managing context within a single session
+Previously in `research/` — moving to the project wiki (see ARCHITECTURE.md).
 
 ## License
 

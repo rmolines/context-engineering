@@ -4,10 +4,10 @@ Context management layer for Claude Code — configures, optimizes, and extends 
 
 ## Commander's Intent
 
-Make AI-assisted development sessions **stateful by default**. CE manages both native Claude Code layers (CLAUDE.md, rules, memory, hooks) and creates new ones (state tracking, domain maps, milestone docs). The system operates in **two worlds**: the human world (GitHub: Issues, PRs, Milestones, Project) for requests and tracking, and the agent world (local disk) for execution context and historical archive. Full architecture in `ARCHITECTURE.md`.
+Make AI-assisted development sessions **stateful by default**. CE manages context across multiple sources — GitHub (Issues, Milestones, PRs, Discussions), local disk (discovery.md, domain map), and native Claude Code layers (CLAUDE.md, rules, memory). Skills route context between sources and sessions. Full architecture in `ARCHITECTURE.md`.
 
 Key principles:
-- **Two worlds** — human works in GitHub (Issues/PRs), agent works on disk (plans/logs). Issue is the handoff contract.
+- **Context routing** — skills know where each type of context lives and how to move it. Issue is the handoff contract between discovery (human+Claude) and delivery (Claude alone).
 - **Discovery + Delivery** — upstream (human + Claude define what) → Issue → downstream (Claude alone builds it)
 - **Facts first** — >50% of context should be domain facts, not instructions
 - **Pointer > prose** — link to code, don't describe it
@@ -19,18 +19,17 @@ Key principles:
 - `hooks/` — lifecycle hooks (post-compact context recovery)
 - `rules/` — behavioral rules (session cycle, standards, context docs)
 - `.claude-plugin/plugin.json` — plugin manifest (name: `ce`). Install: `claude --plugin-dir ~/git/context-engineering`
-- `templates/` — reusable project templates (CLAUDE.md, milestone, issue, domain map)
+- `templates/` — reusable project templates (CLAUDE.md, issue, domain map)
 - `research/` — foundational research on context engineering
 - `tools/context-viz/` — TUI for visualizing session context (Python/Textual)
-- `ARCHITECTURE.md` — canonical reference (philosophy, two worlds, skills, disk structure, GitHub mapping)
+- `ARCHITECTURE.md` — canonical reference (philosophy, context sources & routing, skills, disk structure, GitHub mapping)
 
 ## Canonical patterns
 
 - Skill definition: `skills/bootstrap/SKILL.md` (frontmatter + phases + checklist)
-- Architecture: `ARCHITECTURE.md` (foundation, philosophy, two worlds, end-to-end flow)
+- Architecture: `ARCHITECTURE.md` (foundation, philosophy, context sources & routing, end-to-end flow)
 - Hook: `hooks/post-compact.sh` (lifecycle event handling)
 - Template: `templates/claude-md-root.md` (Commander's Intent format)
-- Milestone template: `templates/state/milestones/milestone.md` (intent + signals)
 - Rule: `rules/session-cycle.md` (auto-loaded rule format)
 
 ## Commands

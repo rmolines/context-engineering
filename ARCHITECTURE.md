@@ -111,27 +111,59 @@ Context Discipline       ~5  lines   (instructions)
 Total                   ~60 lines    (~75% facts, ~25% instructions)
 ```
 
-## Mental model: Two worlds
+## Mental model: Context sources & routing
 
-The system serves two audiences with different needs:
+CE is a context router. It knows where each type of context lives and how to move it between sources and sessions. Skills are the routers.
 
-| | Human world | Agent world |
+### Context sources
+
+| Source | What lives there | Loaded by |
 |---|---|---|
-| **Where** | GitHub (Issues, PRs, Milestones, Project) | Local disk (`.claude/state/`, `.claude/docs/`) |
-| **Purpose** | Request, track, validate | Decompose, execute, remember |
-| **Language** | Intent, behavior, acceptance criteria | Batches, deps, git strategy, files |
-| **Audience** | Stakeholder (you) | Claude agents across sessions |
-| **Nature** | Permanent record | Operational context + historical archive |
+| GitHub Issues | Specs, acceptance criteria | /bootstrap (GraphQL) |
+| GitHub Issue comments | Session history, continuation context | /bootstrap (GraphQL) |
+| GitHub Milestones | Goals, intent, signals | /bootstrap (gh api) |
+| GitHub PRs | Delivery state, CI status | /bootstrap |
+| Local: discovery.md | Deep research, alternatives, analysis | /bootstrap (per Issue) |
+| Local: plan.md | Agent decomposition (ephemeral) | /delivery (temp only) |
+| Local: domain map | Project technical landscape | Always-on pointer |
+| Native: CLAUDE.md | Project identity, canonical patterns | Always-on |
+| Native: rules/ | Behavioral constraints | Always-on |
+| Native: memory/ | User preferences, feedback | Always-on (index) |
+| Native: hooks/ | Lifecycle automation | Always-on |
+| External: WebSearch | Live docs, API refs, changelogs | /delivery step 2.5 (grounding) |
 
-The human is a **stakeholder**, not a PM. Requests arrive rough. Claude absorbs PM + Designer + Tech Lead + Dev + QA roles.
+### Routing criteria
+
+Where does each type of context go?
+
+| Criterion | → Source | Example |
+|---|---|---|
+| Navigability — humans browse it | GitHub | Issue specs, milestone goals |
+| Durability — survives sessions | GitHub (permanent) or local (archive) | Session comments, discovery.md |
+| Verbosity — too detailed for GitHub | Local disk | discovery.md (full research), plan.md |
+| Frequency — loaded every session | Native Claude Code | CLAUDE.md, rules, memory |
+| Ephemerality — only this session | In-context only | Plan deliverables (D1, D2, D3) |
+
+### Skills as routers
+
+| Skill | Direction | What it does |
+|---|---|---|
+| /bootstrap | Sources → Session | Reads GitHub + local, assembles briefing |
+| /persist | Session → Sources | Routes learnings to correct source |
+| /discovery | Intent → GitHub Issue | Creates self-sufficient spec |
+| /delivery | GitHub Issue → PR | Consumes spec, produces delivery |
+
+### Draft convention
+
+An Issue without `## Acceptance Criteria` is a draft. Bootstrap classifies it as "needs discovery". Lifecycle: draft → `/discovery #N` → spec → `/delivery #N` → PR → done. Creating a draft is frictionless: tell the agent "note that we need X" and it creates a minimal Issue in [Backlog].
 
 ### Handoff artifact: the Issue
 
-The Issue is the contract between worlds. It's the output of discovery (human + Claude) and the input of delivery (Claude alone). An Issue must be **self-sufficient**: everything the delivery agent needs must be there.
+The Issue is the context contract between discovery and delivery. It's the output of discovery (human + Claude) and the input of delivery (Claude alone). An Issue must be **self-sufficient**: everything the delivery agent needs must be there.
 
 ### Delivery artifact: the PR
 
-The PR is the delivery back to the human. It contains code + a validation report that maps what was built against what was requested.
+The PR is the delivery back to the stakeholder. It contains code + a validation report that maps what was built against what was requested.
 
 ## Nomenclature
 
@@ -141,7 +173,7 @@ Aligned with GitHub's official terminology:
 |---|---|---|
 | Goal/objective | **Milestone** | Groups related Issues. Description carries intent, success state, signals |
 | Request/task | **Issue** | Spec from discovery: intent, UX flow, acceptance criteria |
-| Quick capture | **Draft Issue** | Backlog idea, lives only in the Project |
+| Quick capture | **Draft Issue** | Issue without ## Acceptance Criteria. Bootstrap classifies as "needs discovery". Lifecycle: draft → /discovery #N → spec → /delivery → done. |
 | Delivery | **Pull Request** | Code + validation report, closes the Issue |
 | Visual overview | **Project** (Board/Table/Roadmap) | 1 Project per repo |
 | Internal decomposition | — | Plan file: batches, deps, git strategy (agent only) |
@@ -153,7 +185,7 @@ Aligned with GitHub's official terminology:
 - Execution logs — troubleshooting history
 - Domain maps — agent context
 
-These live on disk as the agent's operational memory and historical archive.
+These are either ephemeral (D1/D2/D3) or too verbose for GitHub (plan files, execution logs) — routed to local disk by the verbosity criterion.
 
 ## Core skills
 
@@ -166,6 +198,7 @@ Three categories: **infra** (project setup), **context** (session memory), and *
 | `/persist` | Context out | Agent | haiku | low |
 | `/discovery` | Upstream (problem -> spec) | Human + Claude | inherited | -- |
 | `/delivery` | Downstream (spec -> code) | Claude alone | sonnet | high |
+| `/orchestrate` | Autonomous conductor | Claude alone (scheduled) | sonnet | high |
 | `/distill` | Meta (workflow -> skill) | Human + Claude | inherited | -- |
 
 ### Init — project setup
@@ -226,12 +259,15 @@ Autonomous. Claude picks up an Issue and delivers a PR.
 ```
 /delivery #10
   ├── 1. Research (sonnet subagent)
+  ├── 1.5. Ground (sonnet subagent + WebSearch — skipped for pure internal work)
+  │     --> Grounding gate (if critical premise invalidated)
   ├── 2. Decompose (internal plan)
   ├── 3. Implement (subagents per deliverable)
   │     --> Architectural gate (if irreversible decision)
-  ├── 4. Validate (sonnet subagent -- isolated)
-  │     --> Failure gate (if validation fails)
-  └── 5. Deliver (PR with validation report)
+  ├── 4. Validate (sonnet subagent -- isolated, critique→refine loop)
+  │     --> Refinement (up to 2 cycles of targeted fixes)
+  │     --> Failure gate (if still failing after 2 cycles)
+  └── 5. Deliver (PR with validation + grounding report)
 ```
 
 **Checkpoint types:**
@@ -239,6 +275,7 @@ Autonomous. Claude picks up an Issue and delivers a PR.
 | Type | When | Blocks? |
 |---|---|---|
 | Notification | Decomposition done | No |
+| Grounding gate | Critical external premise invalidated | Yes |
 | Architectural gate | New structure, public API change | Yes |
 | Failure gate | Validation failed, CI failed | Yes |
 
@@ -249,7 +286,7 @@ Autonomous. Claude picks up an Issue and delivers a PR.
 | Level | Artifact | Cadence (write) | Cadence (read) | Mechanism |
 |---|---|---|---|---|
 | Strategic | `CLAUDE.md` Commander's Intent | Rare (milestone/pivot) | Always-on | `/bootstrap` suggests review |
-| Operational | `milestone.md` (per Milestone) | Per session (signals) | `/bootstrap` + `/persist` | Backbrief + SITREP |
+| Operational | GitHub Milestone description | Per session (signals) | `/bootstrap` + `/persist` | Backbrief + SITREP |
 | Tactical | Plan files, execution logs | Per session | `/delivery` + `/bootstrap` | Checkpoint after each batch |
 
 ### Commander's Intent
@@ -290,7 +327,7 @@ Loaded on demand. If Claude would only err on **detail** without it, it's disclo
 | Content | Where | When to load |
 |---|---|---|
 | Domain knowledge (full) | `.claude/docs/index.md` | Operating on APIs, auth, data |
-| Milestone details | `.claude/state/milestones/*/milestone.md` | Working on specific Milestone |
+| Milestone details | GitHub Milestone description (via gh api) | Working on specific Milestone |
 | Issue context | `.claude/state/milestones/*/issue-*/` | Working on specific Issue |
 | Execution history | `execution-log.md` | Resuming prior work |
 | Research | `research/` | Needing prior research |
@@ -311,15 +348,14 @@ Mirrors GitHub hierarchy. Everything is permanent (historical archive + operatio
 │   ├── STATE.md                              # Session buffer (generated by /bootstrap)
 │   ├── milestones/                           # 1 dir per Milestone
 │   │   ├── c1-dogfooding/
-│   │   │   ├── milestone.md                  # intent, success state, signals, review log
 │   │   │   ├── issue-10-refresh-tokens/
 │   │   │   │   ├── discovery.md              # research, decisions, UX flow, context
 │   │   │   │   ├── plan.md                   # decomposition, batches, git strategy
-│   │   │   │   └── execution-log.md          # what happened, problems, solutions
+│   │   │   │   ├── execution-log.md          # execution history + decision markers (DECISION/DECISION-FAILED/DECISION-OVERRIDDEN)
+│   │   │   │   └── execution-state.json     # checkpoint state (batch progress, plan hash) — deleted after PR
 │   │   │   └── issue-12-dark-mode/
 │   │   │       └── ...
 │   │   └── c3-validacao-externa/
-│   │       └── milestone.md
 │   └── project-cache.json                    # Project V2 field/option IDs
 ├── docs/
 │   └── index.md                              # domain map (APIs, auth, schema, patterns)
@@ -366,6 +402,7 @@ The more expensive the model, the more it orchestrates and less it executes.
 | Conversation with human, synthesis, decisions | Opus or Sonnet (inherited) |
 | Implementation, technical reasoning | Sonnet |
 | Mechanical: template, extraction, grep, formatting | Haiku |
+| Grounding (premise verification + WebSearch) | Sonnet (receives research output + spec only) |
 | Validation (requires judgment) | Sonnet (isolated, no implementation context) |
 
 The validator subagent is always isolated — receives only the Issue spec and git diff.
@@ -377,11 +414,14 @@ The validator subagent is always isolated — receives only the Issue spec and g
   ↓
 /bootstrap (each session) → load context, align
   ↓
-/discovery → research + spec into Issue (optional)
+/discovery → research + spec into Issue (optional, human + Claude)
   ↓
-/delivery #N → implement Issue → PR
+/delivery #N → implement Issue → PR (single Issue)
   ↓
 /persist → save state + signals + detect drift
+
+Autonomous loop (scheduled):
+/orchestrate → /bootstrap → process PR feedback → /delivery (per Issue) → /persist
 ```
 
 Skills are progressive disclosure — only the description (~250 chars) loads until invoked. Full content loads on demand.
@@ -409,16 +449,18 @@ Skills are progressive disclosure — only the description (~250 chars) loads un
 
                             /delivery #10
                               reads Issue ◄──────────── Issue #10
+                              researches (subagent)
+                              grounds premises ◄──── WebSearch (docs, APIs)
                               decomposes (internal plan)
                               implements (subagents)
                               validates (isolated)
-                              opens PR ──────────────► PR #15 (code + report)
+                              opens PR ──────────────► PR #15 (code + reports)
                               CI passes ─────────────► auto-merge
                               Issue closes ──────────► #10 Done
 
                             /persist
                               saves signals, memory
-                              updates milestone doc
+                              appends signal to GitHub Milestone description
                               sync to GitHub ─────────► Milestone description
 
  checks board ◄──────────────────────────────────────── Project board updated

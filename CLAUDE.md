@@ -8,14 +8,14 @@ Make AI-assisted development sessions **stateful by default**. CE manages contex
 
 Key principles:
 - **Context routing** — skills know where each type of context lives and how to move it. Issue is the handoff contract between discovery (human+Claude) and delivery (Claude alone).
-- **Discovery + Delivery** — upstream (human + Claude define what) → Issue → downstream (Claude alone builds it)
+- **Discovery → Prototype → Delivery** — upstream (define what) → midstream (design the UI) → downstream (build it). Prototype is optional, for UI-heavy Issues.
 - **Facts first** — >50% of context should be domain facts, not instructions
 - **Pointer > prose** — link to code, don't describe it
 - **Nothing is disposable** — local docs are historical archive, not ephemeral
 
 ## Structure
 
-- `skills/` — 6 skills: init (setup), bootstrap (session), discovery (upstream), delivery (downstream), persist (save), distill (meta)
+- `skills/` — 8 skills: init (setup), bootstrap (session), discovery (upstream), prototype (UI-first design), delivery (downstream), persist (save), orchestrate (autonomous), distill (meta)
 - `hooks/` — lifecycle hooks (post-compact context recovery)
 - `rules/` — behavioral rules (session cycle, standards, context docs)
 - `.claude-plugin/plugin.json` — plugin manifest (name: `ce`). Install: `claude --plugin-dir ~/git/context-engineering`

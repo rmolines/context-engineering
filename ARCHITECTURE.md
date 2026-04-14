@@ -153,6 +153,36 @@ Where does each type of context go?
 | /discovery | Intent → GitHub Issue | Creates self-sufficient spec |
 | /delivery | GitHub Issue → PR | Consumes spec, produces delivery |
 
+### Intra-session context routing
+
+Inter-session routing moves context between sources (GitHub ↔ disk ↔ memory). Intra-session routing manages what flows between parent and subagents **within** a single session.
+
+**Principle:** The parent agent's context is a scarce resource. Subagents do verbose work; the parent holds only routing decisions and structured summaries.
+
+```
+Parent (lean context)              Subagent (own context window)
+┌────────────────────┐             ┌──────────────────────────┐
+│ Scoped prompt ──────────────────→│ Full analysis, code reads │
+│                    │             │ verbose reasoning         │
+│                    │    disk ←───│ Writes to execution-log,  │
+│                    │             │ discovery.md, git commits │
+│ Summary (5-10 ln) ←─────────────│ Returns: status + summary │
+└────────────────────┘             └──────────────────────────┘
+```
+
+**Return contract per phase in /delivery:**
+
+| Phase | Writes to disk | Returns to parent |
+|---|---|---|
+| Research (Step 2) | execution-log.md § Step 2 | Approach, risks, premises, file paths |
+| Grounding (Step 2.5) | discovery.md § Grounding | N verified, N flagged, blocking risks |
+| Implementation (Step 4) | git commits + execution-log.md | Status, files changed, decision markers |
+| Validation (Step 5) | execution-log.md § Step 5 | PASS/FAIL, score summary, fix instructions |
+
+**Why disk, not context:** git history and execution-log.md are permanent. Parent context compacts and degrades. Verbose output in disk survives; in context, it doesn't.
+
+**Manus principle:** "Share memory by communicating, don't communicate by sharing memory." Subagents receive scoped input and return scoped output. Full context sharing only when the subagent needs the entire problem trajectory.
+
 ### Draft convention
 
 An Issue without `## Acceptance Criteria` is a draft. Bootstrap classifies it as "needs discovery". Lifecycle: draft → `/discovery #N` → spec → `/delivery #N` → PR → done. Creating a draft is frictionless: tell the agent "note that we need X" and it creates a minimal Issue in [Backlog].
@@ -197,6 +227,7 @@ Three categories: **infra** (project setup), **context** (session memory), and *
 | `/bootstrap` | Context in | Agent | haiku | low |
 | `/persist` | Context out | Agent | haiku | low |
 | `/discovery` | Upstream (problem -> spec) | Human + Claude | inherited | -- |
+| `/prototype` | Midstream (spec -> approved UI shell) | Human + Claude | sonnet | high |
 | `/delivery` | Downstream (spec -> code) | Claude alone | sonnet | high |
 | `/orchestrate` | Autonomous conductor | Claude alone (scheduled) | sonnet | high |
 | `/distill` | Meta (workflow -> skill) | Human + Claude | inherited | -- |
@@ -251,6 +282,28 @@ Collaborative. You + Claude explore the problem, research, define the solution. 
   ├── 5. Technical spec (Tech Lead role)
   └── 6. Create Issue in GitHub
 ```
+
+### Prototype — midstream
+
+Collaborative. Claude researches visual references, harvests code, generates iterative design options (3→1→3), and builds a complete frontend shell with mocked data. The user picks and refines at every gate.
+
+```
+/prototype #10
+  ├── 1. Load context (Issue spec, UX flow)
+  ├── 2. Map the space (competitors, aesthetic references)
+  ├── 3. Harvest code references (HTML/CSS from reference sites, parallel)
+  ├── 4. Define problems per screen (hierarchy, actions, copy)
+  │     --> Problem definition gate
+  ├── 5. Generate 3 options (criteria-driven, not random)
+  │     --> Option selection gate
+  ├── 6. Refine (3 sub-options per round, max 3 rounds)
+  │     --> Refinement gate (iterative)
+  ├── 7. Build the shell (all screens, states, navigation, mocked data)
+  │     --> Shell approval gate
+  └── 8. Update Issue + push branch for /delivery
+```
+
+**Key insight:** Code references > screenshots. Claude understands HTML/CSS structure far better than pixels. The skill fetches actual code from reference sites, not screenshots.
 
 ### Delivery — downstream
 
@@ -407,6 +460,53 @@ The more expensive the model, the more it orchestrates and less it executes.
 
 The validator subagent is always isolated — receives only the Issue spec and git diff.
 
+## Standalone agents
+
+Plugin-shipped agents (`agents/*.md`) that users and skills can invoke directly via `@agent-name`. Unlike inline subagents (spawned ad-hoc by skills), these are persistent definitions with their own memory, tool restrictions, and protocols.
+
+| Agent | When | Purpose | Tools | Isolation | Memory |
+|---|---|---|---|---|---|
+| `spike` | Before discovery/delivery | Answer technical feasibility questions with evidence | All (worktree sandboxes writes) | worktree | project |
+| `architect` | During discovery | Map ecosystem options for architecture/tooling decisions | Read-only + web | — | project |
+| `reviewer` | After delivery/discovery | Review artifacts against quality criteria AND external reality | Read-only + web + git | — | project |
+
+### How agents relate to skills
+
+```
+                    ┌─ @architect ─┐
+                    │  ecosystem   │
+"quero X" ────────► │  research    │
+                    └──────┬───────┘
+                           ▼
+                    /discovery
+                    (human + Claude define spec)
+                           │
+              ┌─ @spike ───┤  (if technical uncertainty)
+              │ feasibility │
+              └─────────────┤
+                           ▼
+                    /delivery #N
+                    (Claude implements)
+                           │
+                           ▼
+              ┌─ @reviewer ┐
+              │  grounding  │
+              │  + quality  │
+              └─────────────┘
+```
+
+- **spike** runs before `/discovery` (is this approach viable?) or before `/delivery` (deep technical question surfaced during research)
+- **architect** runs during `/discovery` Step 2 (external research) when there's a genuine choice between implementation options
+- **reviewer** runs after `/delivery` Step 5 (validates the finished artifact) or after `/discovery` (validates the spec before delivery)
+
+### Design principles
+
+**Persistent memory:** Each agent accumulates project-scoped knowledge across sessions. spike remembers which libraries it verified and when. architect accumulates ecosystem snapshots. reviewer tracks premises that failed and recurring quality patterns. This is institutional knowledge that compounds over time.
+
+**Grounding-first (reviewer):** The reviewer verifies external premises before evaluating quality. An artifact with perfect code but invalid premises gets NEEDS WORK — the foundation matters more than the finish.
+
+**Burden of proof (architect):** The architect does not recommend based on novelty. A recommendation requires evidence that the problem is real, the alternative is proven, and the migration cost is justified. "Everyone is using X" is not evidence.
+
 ## Skill lifecycle
 
 ```
@@ -416,7 +516,9 @@ The validator subagent is always isolated — receives only the Issue spec and g
   ↓
 /discovery → research + spec into Issue (optional, human + Claude)
   ↓
-/delivery #N → implement Issue → PR (single Issue)
+/prototype #N → reference research → iterative design → frontend shell (optional, for UI-heavy Issues)
+  ↓
+/delivery #N → implement Issue → PR (backend integration if prototype exists, full implementation otherwise)
   ↓
 /persist → save state + signals + detect drift
 
@@ -446,6 +548,15 @@ Skills are progressive disclosure — only the description (~250 chars) loads un
  "looks good" ◄──────────── validates with you
                               writes technical spec
                               creates Issue ─────────► Issue #10 (spec)
+
+                            /prototype #10  (optional — UI-heavy Issues)
+                              maps space, finds competitors
+                              harvests code references
+                              defines problems per screen
+ "option B" ◄───────────── presents 3 design options
+                              refines iteratively (3→1→3)
+ "this is it" ◄──────────── builds frontend shell
+                              pushes branch ─────────► prototype/{slug}
 
                             /delivery #10
                               reads Issue ◄──────────── Issue #10

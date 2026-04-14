@@ -1,10 +1,15 @@
 {
   "name": "ce",
-  "version": "2.3.0",
-  "description": "Context Engineering — context management layer for Claude Code. 7 skills: init (setup), bootstrap (session), discovery (upstream), delivery (downstream), orchestrate (autonomous conductor), persist (save), distill (meta).",
+  "version": "2.4.0",
+  "description": "Context Engineering — context management layer for Claude Code. 8 skills + 3 agents: spike (technical investigation), architect (ecosystem research), reviewer (artifact review with grounding).",
   "author": {
     "name": "rmolines"
   },
   "repository": "https://github.com/rmolines/context-engineering",
-  "license": "MIT"
+  "license": "MIT",
+  "agents": [
+    "./agents/spike.md",
+    "./agents/architect.md",
+    "./agents/reviewer.md"
+  ]
 }

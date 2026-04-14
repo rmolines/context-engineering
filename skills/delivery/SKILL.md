@@ -50,7 +50,15 @@ Subagent reads:
 - Relevant code (files mentioned in spec, canonical patterns from domain map)
 - External docs (if spec references APIs, libs, or patterns)
 
-Returns: technical context + risks + suggested approach + list of external premises (APIs, libs, services referenced).
+**Disk output:** append findings to `execution-log.md` § Step 2 (full analysis, risks, alternatives considered, code references with file:line).
+
+**Return to parent (max 10 lines):**
+1. Suggested approach (1-2 sentences)
+2. Key risks (bullet list)
+3. External premises to verify (APIs, libs, versions)
+4. Files that will need changes (paths only)
+
+**Agent nudge:** If research surfaces a deep technical uncertainty that the research subagent cannot resolve confidently (e.g., unknown performance characteristics, untested integration path, ambiguous API behavior): suggest `@spike` before proceeding. *"Research found uncertainty: {question}. Consider `@spike` to validate before decomposing."*
 
 ## Step 2.5 — Ground (sonnet subagent with WebSearch)
 
@@ -66,35 +74,33 @@ Returns: technical context + risks + suggested approach + list of external premi
 - External premises extracted from research output (APIs, lib versions, endpoints, service capabilities)
 - Issue spec (for additional external references)
 
-Subagent verifies each premise via WebSearch against live sources (official docs, changelogs, npm/pypi, API references). Returns:
+Subagent verifies each premise via WebSearch against live sources (official docs, changelogs, npm/pypi, API references).
 
+**Disk output:** append full grounding report to `discovery.md` with timestamp:
 ```markdown
-## Grounding Report
+## Grounding — 2026-04-08
 
 | Premise | Source | Status | Notes |
 |---------|--------|--------|-------|
 | jose v5.2 supports ES256 | npmjs.com/package/jose | ✅ verified | current: v5.4, ES256 supported since v4.0 |
 | /api/v3/auth accepts PKCE | developer.example.com | ⚠️ changed | v3 deprecated, v4 is current — PKCE only on v4 |
-| tailwind v4 supports @apply | tailwindcss.com/docs | ✅ verified | |
 
 ### Flagged risks
-- **BLOCKING:** /api/v3/auth is deprecated. Spec should target v4. Research premise invalid.
+- **BLOCKING:** /api/v3/auth is deprecated. Spec should target v4.
 
 ### Corrections
-- Update auth integration to use API v4 endpoints (breaking change from v3: new token format)
+- Update auth integration to use API v4 endpoints
 ```
+
+**Return to parent (max 5 lines):**
+1. N premises verified, N flagged
+2. Blocking risks (1 line each, if any)
+3. Corrections to apply (1 line each, if any)
 
 **If blocking risks found:** surface to orchestrator before proceeding to decompose:
 > "Grounding found invalid premise for #N: [detail]. Research assumed X but current state is Y. Adjusting plan to account for Y."
 
-**If no blocking risks:** proceed to decompose. Grounding report is carried forward to Step 6 (PR body).
-
-**Persist:** append grounding results to `discovery.md` with timestamp:
-```markdown
-## Grounding — 2026-04-08
-- ✅ jose v5.4: ES256 supported
-- ⚠️ API v3 deprecated → using v4
-```
+**If no blocking risks:** proceed to decompose. Parent reads grounding report from `discovery.md` only when writing PR body (Step 6).
 
 ──▶ **Notification checkpoint:** "Approaching #N as X in N parts: [summary]. Grounding: N premises verified, N flagged."
 
@@ -156,6 +162,14 @@ For each batch (respecting deps):
 
 Parallel deliverables within a batch use `isolation: "worktree"`.
 
+**Subagent return contract:** Each implementation subagent writes code (persisted via git commits) and appends notes to `execution-log.md`. Returns to parent only:
+1. Status: completed | failed | needs-input
+2. Files changed (paths only)
+3. Decision points made (DECISION marker format, 1 line each)
+4. Blockers encountered (if any)
+
+The parent **never receives** raw code, diffs, or implementation rationale — those live in git history and execution-log.md.
+
 **Decision markers:** After each batch, update `execution-log.md` with:
 - Batch status (✅ completed / ❌ failed)
 - Decision points for consequential choices made during implementation:
@@ -189,6 +203,14 @@ This ensures that if the agent crashes mid-delivery, the next `/delivery #N` res
 4. Grounding report from Step 2.5 (what external premises were verified)
 
 **The validator does NOT inherit implementation context.**
+
+**Disk output:** write full critique to `execution-log.md` § Step 5 (all blocking/warning/observation items with file:line references, scoring table, fix instructions).
+
+**Return to parent (max 8 lines):**
+1. Result: PASS | NEEDS REFINEMENT | FAIL
+2. Scoring summary (1 line: "4/5 criteria met, safety ok, coherence high")
+3. Blocking items count + 1-line summary each (if any)
+4. Fix instructions for workers (only if NEEDS REFINEMENT — scoped to specific files/functions)
 
 ### 5.1 — Structured critique
 
@@ -299,6 +321,8 @@ Validator produces a **structured critique**, not just pass/fail:
    rm -f .claude/state/milestones/{milestone-slug}/issue-{N}-{slug}/execution-state.json
    ```
    Note: `execution-log.md` is NOT deleted — it's the permanent history.
+
+5. **Agent nudge:** If the delivery involved external dependencies, APIs, or premises that may have changed since discovery: suggest `@reviewer` for independent grounding + quality review. *"PR #{N} ready. The implementation relies on {N} external premises. Consider `@reviewer` for independent verification before merging."*
 
 ## Rework mode (triggered by /orchestrate)
 

@@ -285,6 +285,7 @@ Left off at: {Next session: field from last session comment}
 [PRs awaiting merge]
 - PR #50 "title" → #49 — opened 5d ago, branch: agent/49-slug
   ⚠ Stale: open >3 days, branch diverged from main
+  💡 Consider `@reviewer` to verify premises are still current before merging
 - PR #62 "title" → #N — opened 1d ago (fresh)
 
 [Needs attention]

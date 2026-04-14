@@ -74,6 +74,10 @@ Two axes, always. Even simple requests benefit from quick research.
 
 Each subagent returns a **concise synthesis**, not a data dump.
 
+**Agent nudges:**
+- If external research reveals **multiple viable approaches** for a key architectural decision (e.g., which auth strategy, which data layer, which framework feature to use): suggest `@architect` to map the landscape before committing. *"Multiple approaches identified for {area}. Consider `@architect` to survey the current ecosystem before choosing."*
+- If research surfaces a **specific technical uncertainty** that blocks confident spec writing (e.g., "does lib X support Y?"): suggest `@spike` to investigate. *"Technical uncertainty: {question}. Consider `@spike` to validate feasibility before specifying."*
+
 ### Step 3 — Propose experience (Designer role)
 
 **Inline (this is conversational — the human validates).**
